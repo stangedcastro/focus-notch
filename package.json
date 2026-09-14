@@ -1,14 +1,44 @@
 {
   "name": "focus-notch",
-  "version": "0.1.0",
-  "private": true,
+  "productName": "Focus Notch",
+  "version": "1.0.0",
+  "description": "A premium macOS notch timer — focus sessions that live at the top edge of the screen.",
+  "author": "Focus Notch",
+  "license": "MIT",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "test": "node ./scripts/smoke.js",
+    "dist": "electron-builder --mac dmg zip",
+    "pack": "electron-builder --mac --publish never"
   },
   "devDependencies": {
-    "electron": "^31.7.7"
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
   },
-  "description": "A macOS notch timer that lives at the top edge of the screen.",
-  "license": "MIT"
+  "build": {
+    "appId": "com.focusnotch.app",
+    "productName": "Focus Notch",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "overlay.html",
+      "assets/**/*",
+      "!review/**/*",
+      "!archive/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    }
+  }
 }

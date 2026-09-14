@@ -4,287 +4,182 @@
 <meta charset="UTF-8" />
 <style>
   * { box-sizing: border-box; -webkit-user-select: none; user-select: none; margin: 0; }
-  html, body {
-    width: 100%; height: 100%;
-    background: transparent;
-    font-family: "Helvetica Neue", "Helvetica", -apple-system, Arial, sans-serif;
-    overflow: hidden;
-  }
-  .stage {
-    width: 100%; height: 100%;
-    display: flex; justify-content: center; align-items: flex-start;
-  }
-
-  /* the notch and its two fillets travel together */
+  html, body { width: 100%; height: 100%; background: transparent; font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif; overflow: hidden; }
+  .stage { width: 100%; height: 100%; display: flex; justify-content: center; align-items: flex-start; }
   .wrap { display: flex; align-items: flex-start; }
 
-  /* ---------- the notch: flat top (flush to screen edge), rounded bottom ---------- */
   .island {
-    position: relative;
-    /* opaque at the very top so it reads as bezel continuing the menu bar,
-       melting into glass as it comes down over the desktop */
-    background: linear-gradient(180deg,
-      #050506 0%, #050506 30%,
-      rgba(9,9,11,.93) 58%, rgba(10,10,12,.86) 100%);
+    position: relative; width: 196px; height: 32px;
+    background: linear-gradient(180deg, #050506 0%, #050506 28%, rgba(10,10,13,.94) 60%, rgba(12,12,16,.88) 100%);
     backdrop-filter: blur(50px) saturate(150%) brightness(.92);
     -webkit-backdrop-filter: blur(50px) saturate(150%) brightness(.92);
-    border: .5px solid rgba(255,255,255,.07);
-    border-top: none;
-    /* no hard drop shadow — it broke the illusion of being part of the panel.
-       just enough ambient darkness to seat it. */
-    box-shadow:
-      0 .5px 0 rgba(255,255,255,.05) inset,
-      0 10px 22px rgba(0,0,0,.26);
-    border-radius: 0 0 18px 18px;
-    overflow: hidden;
-    cursor: default;
-    transition:
-      width .58s cubic-bezier(.32,.72,0,1),
-      height .58s cubic-bezier(.32,.72,0,1),
-      border-radius .58s cubic-bezier(.32,.72,0,1);
-    width: 196px;
-    height: 32px;
+    border: .5px solid rgba(255,255,255,.08); border-top: none;
+    box-shadow: 0 .5px 0 rgba(255,255,255,.06) inset, 0 12px 28px rgba(0,0,0,.32);
+    border-radius: 0 0 18px 18px; overflow: hidden; cursor: default;
+    transition: width .62s cubic-bezier(.32,.72,0,1), height .62s cubic-bezier(.32,.72,0,1), border-radius .62s cubic-bezier(.32,.72,0,1);
   }
-  .island.expanded {
-    width: 312px;
-    height: 150px;
-    border-radius: 0 0 30px 30px;
+  .island.expanded { width: 322px; height: 228px; border-radius: 0 0 32px 32px; }
+  .island::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5; z-index: 5;
+    background-image: radial-gradient(rgba(255,255,255,.10) .45px, transparent .6px);
+    background-size: 7px 7px; mix-blend-mode: overlay;
   }
-
-  /* ---------- shoulders: concave fillets that carve the notch out of the
-       screen edge instead of pasting it on top ---------- */
-  .shoulder {
-    width: 15px; height: 15px; flex: none; pointer-events: none;
-    background: #050506;
-  }
-  .shoulder.l {
-    -webkit-mask-image: radial-gradient(circle 15px at 0 100%, transparent 0 15px, #000 15.4px);
-    mask-image: radial-gradient(circle 15px at 0 100%, transparent 0 15px, #000 15.4px);
-  }
-  .shoulder.r {
-    -webkit-mask-image: radial-gradient(circle 15px at 100% 100%, transparent 0 15px, #000 15.4px);
-    mask-image: radial-gradient(circle 15px at 100% 100%, transparent 0 15px, #000 15.4px);
-  }
-
-  /* ---------- completion flash, on the notch itself ---------- */
   .island::after {
-    content: ''; position: absolute; inset: 0; pointer-events: none;
-    background: radial-gradient(130% 130% at 50% 0%,
-      rgba(185,234,156,.62) 0%, rgba(127,192,106,.24) 52%, rgba(127,192,106,0) 100%);
-    opacity: 0;
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 6; opacity: 0;
+    background: radial-gradient(130% 130% at 50% 0%, rgba(185,234,156,.62) 0%, rgba(127,192,106,.24) 52%, rgba(127,192,106,0) 100%);
   }
   .island.finished::after { animation: notchFlash 2000ms cubic-bezier(.32,.72,0,1) forwards; }
-  @keyframes notchFlash {
-    0% { opacity: 0; } 10% { opacity: 1; } 28% { opacity: .45; }
-    44% { opacity: .85; } 100% { opacity: 0; }
-  }
+  @keyframes notchFlash { 0% {opacity:0} 10% {opacity:1} 28% {opacity:.45} 44% {opacity:.85} 100% {opacity:0} }
 
-  /* ---------- traveling border light: an SVG that follows the actual notch outline ---------- */
-  .border-svg {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    pointer-events: none; overflow: visible;
-  }
+  .shoulder { width: 15px; height: 15px; flex: none; pointer-events: none; background: #050506; }
+  .shoulder.l { -webkit-mask-image: radial-gradient(circle 15px at 0 100%, transparent 0 15px, #000 15.4px); mask-image: radial-gradient(circle 15px at 0 100%, transparent 0 15px, #000 15.4px); }
+  .shoulder.r { -webkit-mask-image: radial-gradient(circle 15px at 100% 100%, transparent 0 15px, #000 15.4px); mask-image: radial-gradient(circle 15px at 100% 100%, transparent 0 15px, #000 15.4px); }
+
+  .border-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 7; }
   .border-path {
-    fill: none;
-    stroke: var(--accent,#c9b48a);
-    stroke-width: 1.4;
-    vector-effect: non-scaling-stroke;
-    stroke-linecap: round;
-    /* short bright comet, mostly gap, traveling around the perimeter */
-    stroke-dasharray: 22 78;
-    stroke-dashoffset: 0;
-    opacity: 0;
-    filter: drop-shadow(0 0 3px var(--accent,#c9b48a));
-    transition: opacity .55s ease;
+    fill: none; stroke: var(--accent,#d3f26a); stroke-width: 1.4; vector-effect: non-scaling-stroke;
+    stroke-linecap: round; stroke-dasharray: 22 78; opacity: 0;
+    filter: drop-shadow(0 0 3px var(--accent,#d3f26a)); transition: opacity .55s ease;
   }
-  .island.running .border-path {
-    opacity: .95;
-    animation: travel 3.2s linear infinite;
-  }
-  /* the traveling light is a minimal-state cue only — hide it while the card is open
-     (the fixed collapsed viewBox would otherwise stretch the comet) */
+  .island.running .border-path { opacity: .95; animation: travel 3.2s linear infinite; }
   .island.expanded .border-path { opacity: 0; animation: none; }
   @keyframes travel { to { stroke-dashoffset: -100; } }
 
-  /* ---------- collapsed pill ---------- */
-  .pill {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; gap: 9px;
-    padding: 0 15px;
-    opacity: 1; cursor: pointer;
-    transition: opacity .26s ease;
-  }
+  .pill { position: absolute; inset: 0; display: flex; align-items: center; gap: 9px; padding: 0 15px; opacity: 1; cursor: pointer; transition: opacity .26s ease; z-index: 8; }
   .island.expanded .pill { opacity: 0; pointer-events: none; }
-
-  .dot {
-    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-    background: var(--accent,#c9b48a);
-    box-shadow: 0 0 7px var(--accent,#c9b48a);
-    transition: background .4s, box-shadow .4s;
-  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--accent,#d3f26a); box-shadow: 0 0 7px var(--accent,#d3f26a); transition: background .4s, box-shadow .4s; }
   .dot.running { animation: pulse 1.7s ease-in-out infinite; }
-  @keyframes pulse {
-    0%,100% { opacity: 1; transform: scale(1); }
-    50% { opacity: .5; transform: scale(.7); }
-  }
-  .pill-name {
-    font-size: 12px; font-weight: 500; color: rgba(255,255,255,.9);
-    letter-spacing: .01em; white-space: nowrap; overflow: hidden;
-    text-overflow: ellipsis; flex: 1;
-  }
-  .pill-time {
-    font-size: 12.5px; font-weight: 600; color: #fff;
-    font-variant-numeric: tabular-nums; letter-spacing: .02em;
-    margin-left: auto; flex-shrink: 0;
-  }
+  @keyframes pulse { 0%,100% {opacity:1; transform:scale(1)} 50% {opacity:.5; transform:scale(.7)} }
+  .pill-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.9); letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .pill-time { font-size: 12.5px; font-weight: 600; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: .04em; margin-left: auto; flex-shrink: 0; }
 
-  /* ---------- expanded card ---------- */
-  .card {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    padding: 14px 18px 16px;
-    opacity: 0; transform: scale(1.03);
-    transition: opacity .3s ease .06s, transform .42s cubic-bezier(.32,.72,0,1) .06s;
-    pointer-events: none;
-  }
-  .island.expanded .card { opacity: 1; transform: scale(1); pointer-events: auto; }
+  /* ---------- expanded: reference-grade frosted instrument ---------- */
+  .card { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 12px 14px 12px; opacity: 0; transform: scale(1.04) translateY(-4px); filter: blur(6px); transition: opacity .34s ease .08s, transform .5s cubic-bezier(.32,.72,0,1) .08s, filter .4s ease .08s; pointer-events: none; z-index: 8; }
+  .island.expanded .card { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); pointer-events: auto; }
+  .card > * { opacity: 0; transform: translateY(8px); transition: opacity .4s ease, transform .5s cubic-bezier(.32,.72,0,1); }
+  .island.expanded .card > *:nth-child(1) { opacity:1; transform:none; transition-delay:.14s }
+  .island.expanded .card > *:nth-child(2) { opacity:1; transform:none; transition-delay:.19s }
+  .island.expanded .card > *:nth-child(3) { opacity:1; transform:none; transition-delay:.24s }
+  .island.expanded .card > *:nth-child(4) { opacity:1; transform:none; transition-delay:.29s }
 
-  .task {
-    font-size: 13px; font-weight: 500; color: rgba(255,255,255,.92);
-    letter-spacing: .01em; outline: none; cursor: text;
-    padding-right: 22px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    border-bottom: 1px solid transparent; transition: border-color .2s ease;
-    padding-bottom: 2px;
-  }
-  .task:empty::before {
-    content: 'Name this session…'; color: rgba(255,255,255,.3);
-  }
-  .task:focus { border-color: rgba(255,255,255,.14); }
+  .cue { text-align: center; font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 14.5px; letter-spacing: -.01em; color: rgba(255,255,255,.88); text-shadow: 0 1px 12px rgba(0,0,0,.5); }
+  .cue small { display:block; font-family: -apple-system, sans-serif; font-style: normal; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; color: rgba(255,255,255,.38); margin-top: 3px; }
 
-  .quit {
-    position: absolute; top: 11px; right: 13px;
-    width: 16px; height: 16px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    color: rgba(255,255,255,.22); cursor: pointer;
-    transition: color .18s ease, background .18s ease;
+  .dial { position: relative; width: 148px; height: 148px; margin: 2px auto 0; flex: none; }
+  .dial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .dial-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .dial-time {
+    font-size: 27px; font-weight: 700; letter-spacing: .06em; color: #fff; font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 14px rgba(255,255,255,.25);
   }
+  .dial-sub { font-size: 8.5px; letter-spacing: .24em; text-transform: uppercase; color: rgba(255,255,255,.42); margin-top: 3px; }
+  .dial-breath { animation: breatheScale 5.5s ease-in-out infinite; transform-origin: 50% 50%; }
+  @keyframes breatheScale { 0%,100% { transform: scale(1);} 50% { transform: scale(1.035);} }
+
+  .sheet {
+    margin-top: 4px; border-radius: 20px; padding: 10px 12px 10px;
+    background: linear-gradient(180deg, rgba(88,86,160,.55), rgba(38,38,80,.62));
+    backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: .5px solid rgba(255,255,255,.14);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 8px 24px rgba(0,0,0,.35);
+    position: relative; overflow: hidden; flex: 1;
+  }
+  .sheet::before { content:''; position:absolute; inset:0; background: radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.14), transparent 60%); pointer-events:none; }
+  .sheet-top { display: flex; align-items: flex-start; justify-content: space-between; position: relative; }
+  .stat { font-size: 13px; font-weight: 600; color: #fff; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat span { display:block; font-size: 8.5px; font-weight: 500; letter-spacing: .18em; color: rgba(255,255,255,.45); margin-top: 2px; }
+  .sheet-hint { text-align: center; font-size: 11.5px; color: rgba(255,255,255,.85); letter-spacing: .01em; }
+  .sheet-hint i { display:block; font-style: normal; font-size: 8px; letter-spacing: .2em; text-transform: uppercase; color: rgba(255,255,255,.4); margin-bottom: 2px; }
+
+  .progress { position: relative; height: 22px; margin-top: 6px; }
+  .progress-track { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background-image: radial-gradient(rgba(255,255,255,.4) .7px, transparent .8px); background-size: 7px 1px; opacity: .7; }
+  .progress-fill { position: absolute; left: 0; top: 50%; height: 2px; margin-top: -1px; width: 0%; border-radius: 2px; background: #d3f26a; box-shadow: 0 0 8px rgba(211,242,106,.8); transition: width .3s linear; }
+  .progress-knob {
+    position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
+    background: conic-gradient(from 200deg, #fff 0 50%, #1a1a20 50% 100%);
+    border: 1.5px dashed rgba(255,255,255,.7); box-shadow: 0 2px 10px rgba(0,0,0,.5);
+    transition: left .3s linear;
+  }
+  .progress-target { position: absolute; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 1px dashed rgba(255,255,255,.35); right: 6px; left: auto; }
+
+  .sheet-actions { display: flex; align-items: center; gap: 8px; margin-top: 7px; position: relative; }
+  .task { flex: 1; font-size: 11px; color: rgba(255,255,255,.75); outline: none; cursor: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 2px 2px 3px; border-bottom: 1px solid transparent; min-width: 0; }
+  .task:empty::before { content: 'Name this session…'; color: rgba(255,255,255,.32); }
+  .task:focus { border-color: rgba(255,255,255,.16); }
+  .modes { display: flex; gap: 8px; }
+  .mode { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.35); cursor: pointer; padding: 4px 8px; border-radius: 20px; transition: all .25s cubic-bezier(.32,.72,0,1); }
+  .mode.on { color: #fff; background: rgba(255,255,255,.14); }
+  .icon-btn { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(255,255,255,.7); background: rgba(255,255,255,.08); border: .5px solid rgba(255,255,255,.1); transition: transform .15s ease, background .2s, color .2s; flex: none; }
+  .icon-btn:hover { background: rgba(255,255,255,.16); color: #fff; }
+  .icon-btn:active { transform: scale(.9); }
+  .icon-btn svg { width: 13px; height: 13px; }
+  .finish-btn {
+    flex: 1; height: 30px; border-radius: 20px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 4px 0 14px; background: rgba(0,0,0,.28); border: .5px solid rgba(255,255,255,.1);
+    font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,.9); cursor: pointer;
+    transition: background .2s, transform .15s ease;
+  }
+  .finish-btn:hover { background: rgba(0,0,0,.4); }
+  .finish-btn:active { transform: scale(.98); }
+  .finish-btn .plus { width: 22px; height: 22px; border-radius: 50%; background: #fff; color: #222; display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1; }
+  .quit { position: absolute; top: 10px; right: 10px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.25); cursor: pointer; z-index: 9; }
   .quit:hover { color: rgba(255,255,255,.85); background: rgba(255,255,255,.08); }
   .quit svg { width: 8px; height: 8px; }
-
-  .modes {
-    display: flex; gap: 14px; margin-top: 10px;
-  }
-  .mode {
-    font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
-    color: rgba(255,255,255,.3); cursor: pointer;
-    transition: color .22s ease; position: relative; padding-bottom: 3px;
-  }
-  .mode.on { color: rgba(255,255,255,.9); }
-  .mode.on::after {
-    content: ''; position: absolute; left: 0; right: 0; bottom: 0;
-    height: 1.5px; border-radius: 1px; background: var(--accent,#c9b48a);
-  }
-
-  .row {
-    flex: 1; display: flex; align-items: center; justify-content: space-between;
-    margin-top: 4px;
-  }
-  .time {
-    font-size: 38px; font-weight: 300; color: #fff; line-height: 1;
-    font-variant-numeric: tabular-nums; letter-spacing: -.02em;
-    cursor: ns-resize;
-    transition: opacity .2s ease;
-  }
-  .time:hover { opacity: .85; }
-  .time .unit { display: block; font-size: 9px; font-weight: 500;
-    letter-spacing: .16em; text-transform: uppercase; margin-top: 6px;
-    color: rgba(255,255,255,.3); }
-
-  .controls { display: flex; align-items: center; gap: 10px; }
-  .ctl {
-    width: 34px; height: 34px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: transform .14s ease-out, background .18s ease, color .3s ease;
-    color: rgba(255,255,255,.9);
-  }
-  .ctl:active { transform: scale(.9); }
-  .ctl.play {
-    width: 42px; height: 42px;
-    background: var(--accent,#c9b48a); color: #1a1813;
-  }
-  .ctl.play:hover { filter: brightness(1.08); }
-  .ctl.minor { color: rgba(255,255,255,.38); }
-  .ctl.minor:hover { color: rgba(255,255,255,.8); }
-  .ctl svg { width: 15px; height: 15px; }
-  .ctl.play svg { width: 16px; height: 16px; }
-
-  /* the secondary slot crossfades reset → finish-now while a session runs,
-     so completing early is one click and the row never shifts */
-  .slot { position: relative; }
-  .slot .ic {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    transition: opacity .24s ease, transform .24s cubic-bezier(.32,.72,0,1);
-  }
-  .slot .ic.done { opacity: 0; transform: scale(.72); }
-  .island.running .slot .ic.reset { opacity: 0; transform: scale(.72); }
-  .island.running .slot .ic.done { opacity: 1; transform: scale(1); }
-  .island.running .slot { color: #8fce77; }
-  .island.running .slot:hover { color: #b9ea9c; background: rgba(127,192,106,.14); }
+  .gear { position: absolute; top: 10px; left: 10px; width: 16px; height: 16px; color: rgba(255,255,255,.25); cursor: pointer; z-index: 9; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+  .gear:hover { color: rgba(255,255,255,.8); background: rgba(255,255,255,.08); }
+  .gear svg { width: 10px; height: 10px; }
+  .prefs { display: none; gap: 6px; align-items: center; justify-content: center; margin-top: 6px; font-size: 10px; color: rgba(255,255,255,.5); }
+  .island.show-prefs .prefs { display: flex; }
+  .prefs button { background: rgba(255,255,255,.1); border: .5px solid rgba(255,255,255,.12); color: #fff; font-size: 10px; border-radius: 12px; padding: 2px 8px; cursor: pointer; }
+  .prefs button.on { background: #d3f26a; color: #1a1a10; border-color: transparent; font-weight: 600; }
 </style>
 </head>
 <body>
   <div class="stage">
-    <div class="wrap" id="wrap">
+    <div class="wrap">
       <div class="shoulder l"></div>
-      <div class="island" id="island" style="--accent:#c9b48a;">
-        <svg class="border-svg" id="borderSvg" viewBox="0 0 196 32" preserveAspectRatio="none">
-          <path class="border-path" id="borderPath" pathLength="100"
-            d="M0,0 H196 V14 A18,18 0 0 1 178,32 H18 A18,18 0 0 1 0,14 Z" />
-        </svg>
-
-        <!-- collapsed -->
+      <div class="island" id="island" style="--accent:#d3f26a;">
+        <svg class="border-svg" viewBox="0 0 196 32" preserveAspectRatio="none"><path class="border-path" pathLength="100" d="M0,0 H196 V14 A18,18 0 0 1 178,32 H18 A18,18 0 0 1 0,14 Z" /></svg>
         <div class="pill">
           <div class="dot" id="dot"></div>
           <div class="pill-name" id="pillName">Focus</div>
           <div class="pill-time" id="pillTime">25:00</div>
         </div>
-
-        <!-- expanded -->
-        <div class="card">
-          <div class="task" id="task" contenteditable="true" spellcheck="false"></div>
-          <div class="quit" id="quit" title="Quit">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"
-              stroke-linecap="round"><path d="M4 4l16 16M20 4L4 20"/></svg>
-          </div>
-          <div class="modes">
-            <div class="mode on" data-mode="focus">Focus</div>
-            <div class="mode" data-mode="break">Break</div>
-          </div>
-          <div class="row">
-            <div class="time" id="time" title="Scroll to set length">25<span class="unit">min</span></div>
-            <div class="controls">
-              <div class="ctl minor slot" id="minor" title="Reset / Finish now">
-                <span class="ic reset">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>
-                  </svg>
-                </span>
-                <span class="ic done">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 12.5l5.2 5.2L20 7"/>
-                  </svg>
-                </span>
-              </div>
-              <div class="ctl play" id="play" title="Start / Pause">
-                <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5.5v13l11-6.5z"/>
-                </svg>
-              </div>
+        <div class="card" id="card">
+          <div class="quit" id="quit" title="Quit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M4 4l16 16M20 4L4 20"/></svg></div>
+          <div class="gear" id="gear" title="Lengths"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.07-.4.1-.8.1-1.2z"/></svg></div>
+          <div class="cue" id="cue">Clear your mind<small id="cueSub">Focus · 25 min</small></div>
+          <div class="dial dial-breath">
+            <svg viewBox="0 0 148 148" id="tickSvg"></svg>
+            <div class="dial-center">
+              <div class="dial-time" id="dialTime">25:00</div>
+              <div class="dial-sub" id="dialSub">Ready</div>
             </div>
+          </div>
+          <div class="sheet">
+            <div class="sheet-top">
+              <div class="stat"><span id="statL">0</span><span id="statLL">TODAY</span></div>
+              <div class="sheet-hint"><i id="hintKicker">● ● ●</i><span id="hintText">Empty your inbox</span></div>
+              <div class="stat" style="text-align:right"><span id="statR">0.0</span><span>HOURS</span></div>
+            </div>
+            <div class="progress">
+              <div class="progress-track"></div>
+              <div class="progress-fill" id="pfill"></div>
+              <div class="progress-target"></div>
+              <div class="progress-knob" id="pknob" style="left:0%"></div>
+            </div>
+            <div class="sheet-actions">
+              <div class="icon-btn" id="minor" title="Reset / Finish now">
+                <svg id="minorReset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                <svg id="minorDone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M4 12.5l5.2 5.2L20 7"/></svg>
+              </div>
+              <div class="finish-btn" id="play"><span id="playLabel">Start tracking</span><span class="plus" id="playPlus">+</span></div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+              <div class="task" id="task" contenteditable="true" spellcheck="false"></div>
+              <div class="modes"><div class="mode on" data-mode="focus">Focus</div><div class="mode" data-mode="break">Break</div></div>
+            </div>
+            <div class="prefs" id="prefs"></div>
           </div>
         </div>
       </div>

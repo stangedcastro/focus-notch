@@ -1,16 +1,34 @@
 const fs = require('fs');
-const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage } = require('electron');
+const path = require('path');
+const { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, shell, globalShortcut, Notification } = require('electron');
 
 const WIDTH = 420;
-const HEIGHT = 180;
-const PRELOAD = __dirname + '/preload.js';
+const HEIGHT = 260;
+const PRELOAD = path.join(__dirname, 'preload.js');
 
-let win;      // the notch
-let overlay;  // full-screen ambient layer (vignette + completion bloom)
-let tray;     // keep a strong reference for the lifetime of the app
+let win;
+let overlay;
+let tray;
 let trayStateTimer = null;
 let pendingTrayState = null;
 let lastTrayUpdate = 0;
+let lastTrayMenuSig = '';
+
+/* ---------- tiny persistent store (no deps, survives updates) ---------- */
+const storePath = () => path.join(app.getPath('userData'), 'focus-notch.json');
+function loadStore() {
+  try {
+    return JSON.parse(fs.readFileSync(storePath(), 'utf8'));
+  } catch {
+    return { focusMin: 25, breakMin: 5, launchAtLogin: false, stats: { sessions: 0, minutes: 0, day: '', daySessions: 0 }, onboarded: false };
+  }
+}
+function saveStore(s) {
+  try { fs.mkdirSync(path.dirname(storePath()), { recursive: true }); fs.writeFileSync(storePath(), JSON.stringify(s)); } catch {}
+}
+let store = loadStore();
+function todayKey() { return new Date().toISOString().slice(0, 10); }
+if (store.stats.day !== todayKey()) { store.stats.day = todayKey(); store.stats.daySessions = 0; saveStore(store); }
 
 function showNotch() {
   if (!win || win.isDestroyed()) return;
@@ -21,158 +39,167 @@ function showNotch() {
   if (!win.isVisible()) win.show();
   win.moveTop();
   win.focus();
+  win.webContents.send('expand', true);
 }
-
-// The notch sits at screen-saver level over the menu bar, so it covers whatever
-// status items live behind it — including this app's own tray icon. That is fine:
-// the tray exists for when the notch is hidden, so clicking it toggles.
 function toggleNotch() {
   if (!win || win.isDestroyed()) return;
   if (win.isVisible()) win.hide(); else showNotch();
 }
-
 function quitApp() {
+  try { globalShortcut.unregisterAll(); } catch {}
   if (overlay && !overlay.isDestroyed()) overlay.destroy();
   app.exit(0);
 }
 
 function trayClock(remaining) {
   const value = typeof remaining === 'string'
-    ? remaining.split(':').reduce((total, part) => total * 60 + Number(part), 0)
+    ? remaining.split(':').reduce((t, p) => t * 60 + Number(p), 0)
     : Number(remaining);
-  const seconds = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-  return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+  const s = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
 function applyTrayState(state) {
   if (!tray) return;
   if (!state || !state.running) {
-    tray.setToolTip('Pomodoro');
-    tray.setTitle('', { fontType: 'monospacedDigit' });
-    return;
+    tray.setToolTip('Focus Notch — ready');
+    try { tray.setTitle('', { fontType: 'monospacedDigit' }); } catch {}
+  } else {
+    const mode = String(state.mode || 'focus').toLowerCase() === 'break' ? 'Break' : 'Focus';
+    const clock = trayClock(state.remaining);
+    tray.setToolTip(`${clock} · ${mode} — Focus Notch`);
+    try { tray.setTitle(clock, { fontType: 'monospacedDigit' }); } catch {}
   }
-
-  const mode = String(state.mode || 'focus').toLowerCase() === 'break' ? 'Break' : 'Focus';
-  const clock = trayClock(state.remaining);
-  tray.setToolTip(`${clock} · ${mode}`);
-  tray.setTitle(clock, { fontType: 'monospacedDigit' });
+  rebuildTrayMenu(state);
 }
 
 function setTrayState(state) {
   pendingTrayState = state;
   const elapsed = Date.now() - lastTrayUpdate;
   if (elapsed < 1000) {
-    if (!trayStateTimer) trayStateTimer = setTimeout(() => {
-      trayStateTimer = null;
-      setTrayState(pendingTrayState);
-    }, 1000 - elapsed);
+    if (!trayStateTimer) trayStateTimer = setTimeout(() => { trayStateTimer = null; setTrayState(pendingTrayState); }, 1000 - elapsed);
     return;
   }
   lastTrayUpdate = Date.now();
   applyTrayState(pendingTrayState);
 }
 
-function createTray() {
-  // createFromPath picks up the @2x sibling automatically and is far more
-  // reliable than assembling representations by hand (which can silently
-  // produce an empty image and a blank menu-bar slot).
-  const image = nativeImage.createFromPath(__dirname + '/assets/trayTemplate.png');
-  image.setTemplateImage(true);
+/* ---------- the sell-ready topbar launcher ---------- */
+function rebuildTrayMenu(state = {}) {
+  if (!tray) return;
+  const running = !!state.running;
+  const mode = String(state.mode || store.lastMode || 'focus').toLowerCase();
+  const clock = trayClock(state.remaining ?? (mode === 'break' ? store.breakMin * 60 : store.focusMin * 60));
+  const sig = `${running}|${mode}|${clock.slice(0, 4)}|${store.focusMin}|${store.breakMin}|${win?.isVisible()}`;
+  if (sig === lastTrayMenuSig) return;
+  lastTrayMenuSig = sig;
 
-  tray = new Tray(image);
+  const send = (ch, ...a) => { if (win && !win.isDestroyed()) win.webContents.send(ch, ...a); };
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: running ? `${clock} · ${mode === 'break' ? 'Break' : 'Focus'}` : 'Focus Notch — ready', enabled: false },
+    { type: 'separator' },
+    running
+      ? { label: 'Pause', click: () => send('cmd', 'pause') }
+      : { label: `Start Focus · ${store.focusMin}m`, click: () => send('cmd', 'start-focus') },
+    running
+      ? { label: 'Finish now', click: () => send('cmd', 'finish') }
+      : { label: `Start Break · ${store.breakMin}m`, click: () => send('cmd', 'start-break') },
+    { label: 'Reset timer', click: () => send('cmd', 'reset') },
+    { type: 'separator' },
+    { label: win && win.isVisible() ? 'Hide Notch' : 'Show Notch', click: toggleNotch },
+    {
+      label: 'Session length', submenu: [15, 25, 45, 60].map((m) => ({
+        label: `${m} min`, type: 'radio', checked: store.focusMin === m,
+        click: () => { store.focusMin = m; saveStore(store); send('settings', { focusMin: m, breakMin: store.breakMin }); rebuildTrayMenu(pendingTrayState); },
+      })),
+    },
+    { label: 'Preferences…', accelerator: 'CmdOrCtrl+,', click: showNotch },
+    { type: 'separator' },
+    { label: `Today: ${store.stats.daySessions} sessions`, enabled: false },
+    { label: 'Reveal data folder', click: () => shell.showItemInFolder(storePath()) },
+    { type: 'separator' },
+    { label: 'Quit Focus Notch', click: quitApp },
+  ]));
+}
+
+/* ---------- native app menu (menu bar when focused) ---------- */
+function buildAppMenu() {
+  const send = (ch, ...a) => { if (win && !win.isDestroyed()) { showNotch(); win.webContents.send(ch, ...a); } };
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: 'Focus Notch',
+      submenu: [
+        { label: 'About Focus Notch', click: showNotch },
+        { type: 'separator' },
+        { label: 'Preferences…', accelerator: 'CmdOrCtrl+,', click: showNotch },
+        { type: 'separator' },
+        { label: 'Hide Focus Notch', accelerator: 'CmdOrCtrl+H', click: () => win && win.hide() },
+        { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' },
+        { label: 'Quit Focus Notch', accelerator: 'CmdOrCtrl+Q', click: quitApp },
+      ],
+    },
+    {
+      label: 'Session',
+      submenu: [
+        { label: 'Start / Pause', accelerator: 'Space', click: () => send('cmd', 'toggle') },
+        { label: 'Finish now', click: () => send('cmd', 'finish') },
+        { label: 'Reset', accelerator: 'CmdOrCtrl+R', click: () => send('cmd', 'reset') },
+        { type: 'separator' },
+        { label: 'Focus 25m', click: () => send('cmd', 'start-focus') },
+        { label: 'Break 5m', click: () => send('cmd', 'start-break') },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Show / Hide Notch', accelerator: 'Alt+Space', click: toggleNotch },
+        { role: 'toggleDevTools' },
+      ],
+    },
+  ]));
+}
+
+function createTray() {
+  const image = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'));
+  try { image.setTemplateImage(true); } catch {}
+  tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image);
   applyTrayState({ running: false });
   lastTrayUpdate = Date.now();
-  tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Show Notch', click: showNotch },
-    { label: 'Hide Notch', click: () => win && !win.isDestroyed() && win.hide() },
-    { label: 'Quit', click: quitApp },
-  ]));
+  rebuildTrayMenu({ running: false });
   tray.on('click', toggleNotch);
 }
 
-/* ---------------------------------------------------------------
-   the notch — sits at the LITERAL top edge, above the menu bar.
-   `bounds` (not workArea) is the whole display, so y = bounds.y is
-   the physical top; workArea starts below the menu bar.
-   --------------------------------------------------------------- */
 function createNotch() {
   const { bounds } = screen.getPrimaryDisplay();
   const x = Math.round(bounds.x + (bounds.width - WIDTH) / 2);
-
   win = new BrowserWindow({
-    width: WIDTH,
-    height: HEIGHT,
-    x,
-    y: bounds.y,
-    frame: false,
-    transparent: true,
-    hasShadow: false,
-    resizable: false,
-    movable: true,
-    skipTaskbar: true,
-    alwaysOnTop: true,
-    fullscreenable: false,
-    acceptFirstMouse: true,
-    // without this macOS clamps the window down below the menu bar
-    enableLargerThanScreen: true,
+    width: WIDTH, height: HEIGHT, x, y: bounds.y,
+    frame: false, transparent: true, hasShadow: false, resizable: false,
+    movable: true, skipTaskbar: true, alwaysOnTop: true, fullscreenable: false,
+    acceptFirstMouse: true, enableLargerThanScreen: true,
     backgroundColor: '#00000000',
-    webPreferences: {
-      preload: PRELOAD,
-      contextIsolation: true,
-    },
+    webPreferences: { preload: PRELOAD, contextIsolation: true },
   });
-
-  // above the menu bar (level 1000) and above the ambient overlay
   win.setAlwaysOnTop(true, 'screen-saver', 1);
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.loadFile('index.html');
-
-  // macOS sometimes clamps the initial y below the menu bar before the
-  // elevated window level takes effect — force it back to the true top.
   win.setPosition(x, bounds.y);
-
-  // The window is a 420x180 transparent box but only the notch shape is real
-  // UI. Start click-through so the menu bar underneath stays usable; the
-  // renderer flips this off while the cursor is actually over the island.
-  // `forward: true` is what keeps mousemove flowing so it can tell.
   win.setIgnoreMouseEvents(true, { forward: true });
+  win.on('hide', () => { lastTrayMenuSig = ''; rebuildTrayMenu(pendingTrayState); });
+  win.on('show', () => { lastTrayMenuSig = ''; rebuildTrayMenu(pendingTrayState); });
 }
 
-/* ---------------------------------------------------------------
-   ambient overlay — covers the entire display (menu bar + dock
-   included), never focusable, never clickable.
-   --------------------------------------------------------------- */
 function createOverlay() {
   const { bounds } = screen.getPrimaryDisplay();
-
   overlay = new BrowserWindow({
-    x: bounds.x,
-    y: bounds.y,
-    width: bounds.width,
-    height: bounds.height,
-    frame: false,
-    transparent: true,
-    hasShadow: false,
-    resizable: false,
-    movable: false,
-    minimizable: false,
-    maximizable: false,
-    closable: false,
-    skipTaskbar: true,
-    focusable: false,
-    fullscreenable: false,
-    acceptFirstMouse: false,
-    enableLargerThanScreen: true,
-    show: false,
-    type: 'panel',
+    x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
+    frame: false, transparent: true, hasShadow: false, resizable: false,
+    movable: false, minimizable: false, maximizable: false, closable: false,
+    skipTaskbar: true, focusable: false, fullscreenable: false,
+    acceptFirstMouse: false, enableLargerThanScreen: true, show: false, type: 'panel',
     backgroundColor: '#00000000',
-    webPreferences: {
-      preload: PRELOAD,
-      contextIsolation: true,
-    },
+    webPreferences: { preload: PRELOAD, contextIsolation: true },
   });
-
-  // never intercepts the cursor — no forwarding needed, it wants no input at all
   overlay.setIgnoreMouseEvents(true);
   overlay.setAlwaysOnTop(true, 'screen-saver', 0);
   overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -192,13 +219,30 @@ const toOverlay = (channel, payload) => {
 ipcMain.on('overlay-vignette', (_e, on) => toOverlay('vignette', on));
 ipcMain.on('overlay-celebrate', (_e, opts) => toOverlay('celebrate', opts || {}));
 ipcMain.on('set-tray-state', (_e, state) => setTrayState(state));
-
-ipcMain.on('set-ignore-mouse', (_evt, ignore) => {
-  if (win) win.setIgnoreMouseEvents(ignore, { forward: true });
+ipcMain.on('set-ignore-mouse', (_e, ignore) => { if (win) win.setIgnoreMouseEvents(ignore, { forward: true }); });
+ipcMain.on('notify', (_e, { title, body }) => {
+  try { if (Notification.isSupported()) new Notification({ title, body }).show(); } catch {}
 });
+ipcMain.on('session-complete', (_e, { mode, minutes }) => {
+  if (store.stats.day !== todayKey()) { store.stats.day = todayKey(); store.stats.daySessions = 0; }
+  store.stats.sessions += 1;
+  store.stats.daySessions += 1;
+  store.stats.minutes += Number(minutes) || 0;
+  store.lastMode = mode;
+  saveStore(store);
+  lastTrayMenuSig = '';
+  rebuildTrayMenu(pendingTrayState);
+});
+ipcMain.on('settings-save', (_e, s) => {
+  if (s.focusMin) store.focusMin = s.focusMin;
+  if (s.breakMin) store.breakMin = s.breakMin;
+  if (typeof s.launchAtLogin === 'boolean') { store.launchAtLogin = s.launchAtLogin; try { app.setLoginItemSettings({ openAtLogin: s.launchAtLogin }); } catch {} }
+  saveStore(store);
+  lastTrayMenuSig = '';
+  rebuildTrayMenu(pendingTrayState);
+});
+ipcMain.handle('settings-load', () => ({ ...store, storePath: storePath() }));
 
-// manual window drag: records the grab offset, then follows the cursor.
-// Lets a tap stay a click (handled in renderer) while a drag moves the window.
 let dragGrab = null;
 ipcMain.on('drag-start', () => {
   if (!win) return;
@@ -211,18 +255,27 @@ ipcMain.on('drag-move', () => {
   const cursor = screen.getCursorScreenPoint();
   win.setPosition(cursor.x - dragGrab.dx, Math.max(0, cursor.y - dragGrab.dy));
 });
-
 ipcMain.on('quit-app', quitApp);
 
 app.whenReady().then(() => {
   createTray();
   createOverlay();
   createNotch();
-  // settle z-order: overlay under, notch on top
+  buildAppMenu();
   win.once('ready-to-show', () => { overlay.moveTop(); win.moveTop(); });
+  try {
+    app.setLoginItemSettings({ openAtLogin: !!store.launchAtLogin });
+    globalShortcut.register('Alt+Space', toggleNotch);
+  } catch {}
+  if (!store.onboarded) {
+    store.onboarded = true; saveStore(store);
+    win.once('ready-to-show', () => setTimeout(showNotch, 600));
+  }
   screen.on('display-metrics-changed', fitOverlay);
   screen.on('display-added', fitOverlay);
   screen.on('display-removed', fitOverlay);
+  app.on('activate', showNotch);
 });
 
 app.on('window-all-closed', () => app.quit());
+app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch {} });
