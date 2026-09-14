@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<style>
+  /* ============================================================
+     Ambient full-screen layer. Click-through, never focusable.
+     Two jobs: a soft vignette while focus is running, and a
+     full-screen green bloom when a pomodoro completes.
+     Same palette language as the notch (accent gold / break green).
+     ============================================================ */
+
+  :root {
+    /* celebration light — bright highlight + body green */
+    --c1: 185,234,156;
+    --c2: 127,192,106;
+  }
+  /* break-end cue reuses the focus gold, softer */
+  body.gold { --c1: 233,216,178; --c2: 201,180,138; }
+
+  * { margin: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: transparent;
+    overflow: hidden;
+    pointer-events: none;
+    -webkit-user-select: none;
+  }
+  .layer { position: fixed; inset: 0; pointer-events: none; will-change: opacity; }
+
+  /* ---------- soft vignette (focus running) ---------- */
+  .vignette {
+    opacity: 0;
+    transition: opacity 2.2s cubic-bezier(.32,.72,0,1);
+    background:
+      radial-gradient(126% 106% at 50% 44%,
+        rgba(0,0,0,0)   38%,
+        rgba(6,5,4,.15) 64%,
+        rgba(4,4,5,.36) 84%,
+        rgba(2,2,3,.54) 100%),
+      radial-gradient(120% 100% at 50% 0%,
+        rgba(201,180,138,.06) 0%,
+        rgba(0,0,0,0)         52%);
+  }
+  .vignette.on { opacity: 1; animation: breathe 11s ease-in-out infinite; }
+  /* barely-there breathing so it feels alive, never distracting */
+  @keyframes breathe { 0%,100% { opacity: .90; } 50% { opacity: 1; } }
+
+  /* ---------- completion bloom ---------- */
+  .cel { opacity: 0; }
+  body.celebrate .cel.wash  { animation: washK  2400ms cubic-bezier(.32,.72,0,1) forwards; }
+  body.celebrate .cel.rim   { animation: rimK   2600ms cubic-bezier(.32,.72,0,1) forwards; }
+  body.celebrate .bloom     { animation: bloomK 1600ms cubic-bezier(.22,.9,.24,1) forwards; }
+  body.celebrate.soft .cel.wash { animation-duration: 1500ms; opacity: 0; }
+  body.celebrate.soft         { opacity: .6; }
+
+  /* broad wash, poured from the notch downward */
+  .wash {
+    background:
+      radial-gradient(126% 92% at 50% 0%,
+        rgba(var(--c1),.64)  0%,
+        rgba(var(--c2),.48) 34%,
+        rgba(var(--c2),.32) 68%,
+        rgba(var(--c2),.24) 100%);
+  }
+  @keyframes washK {
+    0%   { opacity: 0;   transform: scale(1.05); }
+    11%  { opacity: 1;   transform: scale(1); }
+    29%  { opacity: .50; }
+    43%  { opacity: .80; }
+    62%  { opacity: .40; }
+    100% { opacity: 0;   transform: scale(1); }
+  }
+
+  /* light bleeding in from the screen edges — the "the whole display exhales" beat */
+  .rim {
+    box-shadow:
+      inset 0 0 210px 60px rgba(var(--c2),.68),
+      inset 0 0  60px  0   rgba(var(--c1),.55);
+  }
+  @keyframes rimK {
+    0%   { opacity: 0; }
+    14%  { opacity: 1; }
+    32%  { opacity: .46; }
+    48%  { opacity: .78; }
+    100% { opacity: 0; }
+  }
+
+  /* soft disc of light swelling out of the notch itself */
+  .bloom {
+    position: fixed; left: 50%; top: 0;
+    width: 62vmax; height: 62vmax;
+    margin-left: -31vmax; margin-top: -31vmax;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(var(--c1),.72) 0%,
+      rgba(var(--c2),.38) 42%,
+      rgba(0,0,0,0)       70%);
+    filter: blur(26px);
+    opacity: 0;
+    pointer-events: none;
+  }
+  @keyframes bloomK {
+    0%   { opacity: 0;   transform: scale(.34); }
+    16%  { opacity: .95; }
+    100% { opacity: 0;   transform: scale(1.55); }
+  }
+</style>
+</head>
+<body>
+  <div class="layer vignette" id="vignette"></div>
+  <div class="layer cel wash"></div>
+  <div class="layer cel rim"></div>
+  <div class="bloom"></div>
+
+<script>
+  const vignette = document.getElementById('vignette');
+  let celTimer = null;
+
+  window.overlay.onVignette((on) => {
+    vignette.classList.toggle('on', !!on);
+  });
+
+  window.overlay.onCelebrate(({ tone } = {}) => {
+    const b = document.body;
+    // restart cleanly if a second completion lands mid-animation
+    b.classList.remove('celebrate', 'soft', 'gold');
+    void b.offsetWidth;
+    if (tone === 'gold') b.classList.add('gold', 'soft');
+    b.classList.add('celebrate');
+    clearTimeout(celTimer);
+    celTimer = setTimeout(() => b.classList.remove('celebrate', 'soft', 'gold'), 2700);
+  });
+</script>
+</body>
+</html>
