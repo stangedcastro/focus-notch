@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <style>
-  :root { --c1: 211,242,106; --c2: 127,192,106; }
-  body.gold { --c1: 233,216,178; --c2: 201,180,138; }
+  :root { --c1: 185,234,156; --c2: 127,192,106; }
   * { margin: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; pointer-events: none; -webkit-user-select: none; }
   .layer { position: fixed; inset: 0; pointer-events: none; will-change: opacity; }
@@ -12,9 +11,13 @@
     opacity: 0; transition: opacity 2.2s cubic-bezier(.32,.72,0,1);
     background:
       radial-gradient(126% 106% at 50% 44%, rgba(0,0,0,0) 38%, rgba(6,5,4,.15) 64%, rgba(4,4,5,.36) 84%, rgba(2,2,3,.54) 100%),
-      radial-gradient(120% 100% at 50% 0%, rgba(211,242,106,.06) 0%, rgba(0,0,0,0) 52%);
+      radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,.025) 0%, rgba(0,0,0,0) 52%);
   }
   .vignette.on { opacity: 1; animation: breathe 11s ease-in-out infinite; }
+  .focus-init {
+    opacity: 0;
+    background: radial-gradient(ellipse 90% 90% at 50% 44%, rgba(2,3,5,.035) 20%, rgba(2,3,5,.12) 46%, rgba(2,3,5,.48) 75%, rgba(2,3,5,.78) 100%);
+  }
   @keyframes breathe { 0%,100% { opacity: .90; } 50% { opacity: 1; } }
   .cel { opacity: 0; }
   body.celebrate .cel.wash  { animation: washK  2400ms cubic-bezier(.32,.72,0,1) forwards; }
@@ -35,25 +38,94 @@
     filter: blur(26px); opacity: 0; pointer-events: none;
   }
   @keyframes bloomK { 0% {opacity:0; transform:scale(.34)} 16% {opacity:.95} 100% {opacity:0; transform:scale(1.55)} }
+  @media (prefers-reduced-motion: reduce) {
+    .vignette.on { animation: none; }
+    body.celebrate .cel.wash { animation-name: washReduced; }
+    body.celebrate .cel.rim { animation-name: rimReduced; }
+    body.celebrate .bloom { animation-name: bloomReduced; }
+    @keyframes washReduced { 0% { opacity:0 } 12% { opacity:.72 } 100% { opacity:0 } }
+    @keyframes rimReduced { 0% { opacity:0 } 14% { opacity:1 } 100% { opacity:0 } }
+    @keyframes bloomReduced { 0% { opacity:0 } 16% { opacity:.85 } 100% { opacity:0 } }
+  }
 </style>
 </head>
 <body>
   <div class="layer vignette" id="vignette"></div>
+  <div class="layer focus-init" id="focusInit"></div>
   <div class="layer cel wash"></div>
   <div class="layer cel rim"></div>
   <div class="bloom"></div>
 <script>
   const vignette = document.getElementById('vignette');
+  const focusInit = document.getElementById('focusInit');
   let celTimer = null;
+  let introAnimation = null;
+  let audioContext = null;
+  let cueGain = null;
+  let introGeneration = 0;
+  function stopFocusIntro() {
+    introGeneration++;
+    const opacity = getComputedStyle(focusInit).opacity;
+    focusInit.getAnimations().forEach(animation => animation.cancel());
+    introAnimation = null;
+    if (Number(opacity) > 0) focusInit.animate([{ opacity }, { opacity:0 }], { duration:240, easing:'ease-out' });
+    if (cueGain && audioContext) {
+      const now = audioContext.currentTime;
+      cueGain.gain.cancelScheduledValues(now);
+      cueGain.gain.setTargetAtTime(0, now, .025);
+      cueGain = null;
+    }
+  }
+  async function playFocusCue() {
+    const generation = introGeneration;
+    try {
+      audioContext ||= new AudioContext();
+      await audioContext.resume();
+      if (generation !== introGeneration) return;
+      const now = audioContext.currentTime;
+      const gain = audioContext.createGain();
+      cueGain = gain;
+      gain.connect(audioContext.destination);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(.055, now + .09);
+      gain.gain.exponentialRampToValueAtTime(.0001, now + 1.8);
+      let remaining = 2;
+      for (const [frequency, delay] of [[220, 0], [330, .16]]) {
+        const tone = audioContext.createOscillator();
+        tone.type = 'sine';
+        tone.frequency.value = frequency;
+        tone.connect(gain);
+        tone.start(now + delay);
+        tone.stop(now + 1.85);
+        tone.onended = () => {
+          tone.disconnect();
+          if (--remaining === 0) { gain.disconnect(); if (cueGain === gain) cueGain = null; }
+        };
+      }
+    } catch { /* Audio device failure must never delay the timer. */ }
+  }
+  window.overlay.onInitiateFocus((opts) => {
+    stopFocusIntro();
+    if (!opts) return;
+    if (opts.visual) {
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      introAnimation = focusInit.animate([
+        { opacity: 0, offset: 0, easing: 'cubic-bezier(.32,.72,0,1)' },
+        { opacity: reduced ? .6 : 1, offset: .18 },
+        { opacity: reduced ? .6 : 1, offset: .42, easing: 'cubic-bezier(.4,0,.2,1)' },
+        { opacity: 0, offset: 1 },
+      ], { duration: 10000 });
+    }
+    if (opts.sound) playFocusCue();
+  });
   window.overlay.onVignette((on) => { vignette.classList.toggle('on', !!on); });
   window.overlay.onCelebrate(({ tone } = {}) => {
     const b = document.body;
-    b.classList.remove('celebrate', 'soft', 'gold');
+    b.classList.remove('celebrate', 'soft');
     void b.offsetWidth;
-    if (tone === 'gold') b.classList.add('gold', 'soft');
     b.classList.add('celebrate');
     clearTimeout(celTimer);
-    celTimer = setTimeout(() => b.classList.remove('celebrate', 'soft', 'gold'), 2700);
+    celTimer = setTimeout(() => b.classList.remove('celebrate', 'soft'), 2700);
   });
 </script>
 </body>

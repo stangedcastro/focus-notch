@@ -9,6 +9,9 @@
   "scripts": {
     "start": "electron .",
     "test": "node ./scripts/smoke.js",
+    "test:native": "node ./scripts/native-foundations.js",
+    "test:ui": "electron ./scripts/electron-regression.js",
+    "test:overlay": "electron ./scripts/overlay-regression.js",
     "dist": "electron-builder --mac dmg zip",
     "pack": "electron-builder --mac --publish never"
   },

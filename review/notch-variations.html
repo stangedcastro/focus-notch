@@ -1,0 +1,1416 @@
+<title>Notch UI — variation review</title>
+<style>
+:root{
+  --ease-drawer: cubic-bezier(.32,.72,0,1);
+  --ease-out: cubic-bezier(.23,1,.32,1);
+  --gold:#c9b48a; --green:#7fc06a;
+  --bg:#0d0d0f; --panel:#151517; --line:rgba(255,255,255,.09);
+  --tx:rgba(255,255,255,.92); --tx2:rgba(255,255,255,.45);
+  --cols:4; --scale:1;
+}
+/* chrome follows the viewer; the frames stay dark either way — a notch only
+   exists against a dark screen edge, so that half is a deliberate constant. */
+@media (prefers-color-scheme: light){
+  :root{ --bg:#eceae6; --panel:#fff; --line:rgba(0,0,0,.1);
+         --tx:#16161a; --tx2:rgba(0,0,0,.5); }
+}
+:root[data-theme="light"]{
+  --bg:#eceae6; --panel:#fff; --line:rgba(0,0,0,.1);
+  --tx:#16161a; --tx2:rgba(0,0,0,.5);
+}
+:root[data-theme="dark"]{
+  --bg:#0d0d0f; --panel:#151517; --line:rgba(255,255,255,.09);
+  --tx:rgba(255,255,255,.92); --tx2:rgba(255,255,255,.45);
+}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important}
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);
+  font:13px/1.45 "Helvetica Neue",Helvetica,-apple-system,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+
+/* ---------------- toolbar ---------------- */
+.bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;
+  flex-wrap:wrap;padding:10px 16px;background:var(--panel);
+  border-bottom:1px solid var(--line)}
+.bar b{font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.bar .sp{flex:1}
+button,select{font:inherit;color:var(--tx);background:transparent;
+  border:1px solid var(--line);border-radius:7px;padding:4px 9px;cursor:pointer;
+  transition:background .14s ease-out,border-color .14s ease-out}
+button:hover{background:rgba(127,127,127,.14)}
+button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.tabs{display:flex;gap:4px}
+input[type=range]{width:88px;accent-color:var(--gold)}
+label.rng{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--tx2)}
+.tally{font-size:11px;color:var(--tx2);font-variant-numeric:tabular-nums}
+
+/* ---------------- layout ---------------- */
+main{padding:16px}
+details.doc{margin:0 0 16px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel)}
+details.doc>summary{cursor:pointer;padding:10px 14px;font-size:12px;
+  letter-spacing:.04em;text-transform:uppercase;color:var(--tx2)}
+details.doc .body{padding:2px 18px 16px;font-size:13px;max-width:80ch}
+details.doc h4{margin:14px 0 5px;font-size:13px}
+details.doc p,details.doc li{color:var(--tx);opacity:.85;margin:5px 0}
+details.doc code{background:rgba(127,127,127,.16);padding:1px 5px;border-radius:4px;
+  font:12px ui-monospace,Menlo,monospace}
+.rnd{margin-bottom:8px}
+.rnd>summary{cursor:pointer;padding:8px 2px;font-size:12px;color:var(--tx2);
+  letter-spacing:.04em}
+.grid{display:grid;grid-template-columns:repeat(var(--cols),1fr);gap:14px;padding:10px 0}
+
+/* ---------------- frame ---------------- */
+.fr{position:relative;border:1px solid var(--line);border-radius:12px;
+  overflow:hidden;background:#08080a}
+.fr.hide{display:none}
+.fr .stage{position:relative;height:236px;overflow:hidden;transition:height .3s var(--ease-out);
+  background:
+    radial-gradient(120% 90% at 30% 0%,#243044 0%,#11141c 46%,#08080a 100%);
+  display:flex;justify-content:center}
+/* fake menu bar so the notch is judged in context */
+.fr .stage::before{content:'';position:absolute;top:0;left:0;right:0;height:25px;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(8px)}
+.fr .zoom{transform-origin:50% 0;display:flex;justify-content:center;width:100%}
+.fr .cap{position:absolute;top:8px;left:10px;z-index:6;font-size:10px;
+  letter-spacing:.1em;color:rgba(255,255,255,.34);font-variant-numeric:tabular-nums}
+
+/* info overlay — never changes layout height */
+.fr .info{position:absolute;left:0;right:0;bottom:0;z-index:7;padding:26px 12px 10px;
+  background:linear-gradient(180deg,transparent,rgba(0,0,0,.9) 55%);
+  opacity:0;pointer-events:none;transition:opacity .18s ease-out}
+.fr.info-on .info,body.info-all .fr .info{opacity:1}
+.fr .info .nm{font-size:12px;font-weight:600;color:#fff}
+.fr .info .ds{font-size:11px;color:rgba(255,255,255,.62);margin-top:2px}
+
+/* control strip */
+.ctr{display:flex;align-items:center;gap:5px;padding:7px 9px;background:var(--panel);
+  border-top:1px solid var(--line)}
+.ctr .v{width:26px;height:24px;padding:0;font-size:12px;line-height:1}
+.ctr .v.keep.on{background:#3f9e58;border-color:#3f9e58;color:#fff}
+.ctr .v.imp.on{background:#c08a2e;border-color:#c08a2e;color:#fff}
+.ctr .v.kill.on{background:#b4453f;border-color:#b4453f;color:#fff}
+.ctr .st.on{background:var(--gold);border-color:var(--gold);color:#1a1813}
+.ctr select{padding:3px 4px;font-size:11px}
+.ctr .sp{flex:1}
+.note{width:100%;border:0;border-top:1px solid var(--line);background:var(--panel);
+  color:var(--tx);font:12px/1.4 inherit;padding:7px 9px;resize:vertical;min-height:46px;
+  display:none}
+.note.on{display:block}
+
+/* ============================================================
+   THE NOTCH — shared base. Variants override below.
+   ============================================================ */
+.notch{display:flex;align-items:flex-start;--acc:var(--gold);
+  --w:196px;--h:32px;--ew:312px;--eh:150px;--r:18px;--er:30px;--sh:15px}
+.notch .sh{width:var(--sh);height:var(--sh);flex:none;background:#050506;
+  transition:width .58s var(--ease-drawer),height .58s var(--ease-drawer)}
+.notch .sh.l{-webkit-mask-image:radial-gradient(circle at 0 100%,transparent 0 var(--sh),#000 calc(var(--sh) + .4px))}
+.notch .sh.r{-webkit-mask-image:radial-gradient(circle at 100% 100%,transparent 0 var(--sh),#000 calc(var(--sh) + .4px))}
+/* every notch owns its ink so children never inherit the review page's colour */
+.notch .isle{color:rgba(255,255,255,.9);
+  position:relative;width:var(--w);height:var(--h);border-radius:0 0 var(--r) var(--r);
+  background:linear-gradient(180deg,#050506 0%,#050506 30%,rgba(9,9,11,.93) 58%,rgba(10,10,12,.86) 100%);
+  border:.5px solid rgba(255,255,255,.07);border-top:none;overflow:hidden;cursor:pointer;
+  box-shadow:0 .5px 0 rgba(255,255,255,.05) inset,0 10px 22px rgba(0,0,0,.26);
+  transition:width .58s var(--ease-drawer),height .58s var(--ease-drawer),
+             border-radius .58s var(--ease-drawer)}
+.notch.expanded .isle{width:var(--ew);height:var(--eh);border-radius:0 0 var(--er) var(--er)}
+.notch.expanded{--sh:18px}
+
+.pill{position:absolute;inset:0;display:flex;align-items:center;gap:9px;padding:0 15px;
+  transition:opacity .26s ease}
+.notch.expanded .pill{opacity:0;pointer-events:none}
+.dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--acc);
+  box-shadow:0 0 7px var(--acc);animation:pulse 1.7s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+.nm{font-size:12px;font-weight:500;color:rgba(255,255,255,.9);flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tm{font-size:12.5px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums;flex:none}
+
+.card{position:absolute;inset:0;display:flex;flex-direction:column;padding:14px 18px 16px;
+  opacity:0;transform:scale(1.03);pointer-events:none;
+  transition:opacity .3s ease .06s,transform .42s var(--ease-drawer) .06s}
+.notch.expanded .card{opacity:1;transform:scale(1);pointer-events:auto}
+.task{font-size:13px;font-weight:500;color:rgba(255,255,255,.92);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task.ph{color:rgba(255,255,255,.3)}
+.modes{display:flex;gap:14px;margin-top:10px;position:relative}
+.md{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(255,255,255,.3);position:relative;padding-bottom:3px;transition:color .22s ease}
+.md.on{color:rgba(255,255,255,.9)}
+.md.on::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1.5px;
+  border-radius:1px;background:var(--acc)}
+.row{flex:1;display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.big{font-size:38px;font-weight:300;color:#fff;line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.big .u{display:block;font-size:9px;font-weight:500;letter-spacing:.16em;
+  text-transform:uppercase;margin-top:6px;color:rgba(255,255,255,.3)}
+.ctls{display:flex;align-items:center;gap:10px}
+.cb{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;color:rgba(255,255,255,.38);transition:transform .14s ease-out}
+.cb:active{transform:scale(.9)}
+.cb.pl{width:42px;height:42px;background:var(--acc);color:#1a1813}
+.cb svg{width:15px;height:15px}.cb.pl svg{width:16px;height:16px}
+.mn{position:absolute;top:11px;right:13px;width:16px;height:16px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.25);
+  font-size:13px;line-height:1;letter-spacing:-1px}
+
+/* progress primitives reused by several variants */
+.pbar{position:absolute;left:0;bottom:0;height:1.5px;background:var(--acc);width:38%;
+  box-shadow:0 0 6px var(--acc)}
+.ring{transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:2.5}
+.ring .bg{stroke:rgba(255,255,255,.13)}
+.ring .fg{stroke:var(--acc);stroke-linecap:round}
+
+/* ============ per-variant overrides ============ */
+/* 02 progress ring replaces the dot */
+.v02 .rng16{flex:none}
+/* 03 hairline progress along the bottom edge */
+.v03 .isle{overflow:visible}
+.v03 .pbar{border-radius:0 0 0 var(--r)}
+/* 04 time-first: name hidden until hover */
+.v04{--w:150px;--eh:198px}
+.v04 .nm{max-width:0;opacity:0;transition:max-width .3s var(--ease-drawer),opacity .2s}
+.v04 .isle:hover .nm{max-width:90px;opacity:1}
+.v04 .tm{font-size:14px}
+.v04 .card .row{flex-direction:column;justify-content:center;gap:12px}
+.v04 .big{font-size:52px}
+/* 05 vertical stack, segmented modes at the bottom */
+.v05{--eh:190px}
+.v05 .card{align-items:center;text-align:center}
+.v05 .row{flex-direction:column;gap:10px;margin-top:8px}
+.v05 .big{font-size:44px}
+.v05 .modes{order:3;margin-top:auto}
+/* 06 segmented control */
+.v06 .modes{gap:0;background:rgba(255,255,255,.07);border-radius:7px;padding:2px;
+  align-self:flex-start}
+.v06 .md{padding:4px 10px;border-radius:5px;transition:background .22s var(--ease-out),color .22s}
+.v06 .md.on{background:rgba(255,255,255,.14)}
+.v06 .md.on::after{display:none}
+/* 07 typographic, no icons */
+.v07 .dot{display:none}
+.v07 .big{font-weight:200;font-size:42px}
+.v07 .cb{width:auto;height:auto;border-radius:0;font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;background:none;color:rgba(255,255,255,.4)}
+.v07 .cb.pl{width:auto;height:auto;background:none;color:var(--acc)}
+.v07 .cb svg{display:none}
+/* 08 two-line compact */
+.v08{--h:46px}
+.v08 .pill{flex-direction:column;align-items:stretch;justify-content:center;gap:3px;padding:0 14px}
+.v08 .r1{display:flex;align-items:center;gap:7px}
+.v08 .r2{display:flex;align-items:center;gap:8px}
+.v08 .tm{font-size:11px;color:rgba(255,255,255,.62)}
+.v08 .trk{flex:1;height:2px;border-radius:1px;background:rgba(255,255,255,.14);position:relative}
+.v08 .trk i{position:absolute;inset:0 62% 0 0;background:var(--acc);border-radius:1px}
+/* 09 inline transport in the pill */
+.v09{--w:214px}
+.v09 .ic{width:16px;height:16px;flex:none;color:var(--acc);opacity:.85;
+  transition:transform .14s ease-out}
+.v09 .ic:active{transform:scale(.86)}
+/* 10 wide + short, dots as progress */
+.v10{--w:280px;--h:26px;--r:13px;--sh:11px}
+.v10 .tm{font-size:11.5px}
+.v10 .nm{font-size:11px}
+.v10 .pdots{display:flex;gap:3px;flex:none}
+.v10 .pdots i{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.22)}
+.v10 .pdots i.f{background:var(--acc)}
+/* 11 dial */
+.v11{--ew:300px;--eh:196px}
+.v11 .card{align-items:center}
+.v11 .dial{position:relative;margin-top:6px}
+.v11 .dial .lbl{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center}
+.v11 .dial .lbl b{font-size:30px;font-weight:300;font-variant-numeric:tabular-nums}
+.v11 .dial .lbl span{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:rgba(255,255,255,.3);margin-top:3px}
+.v11 .ctls{margin-top:10px}
+/* 12 split columns */
+.v12{--ew:344px;--eh:132px}
+.v12 .card{flex-direction:row;gap:16px;align-items:stretch;padding:14px 16px}
+.v12 .lft{display:flex;flex-direction:column;justify-content:space-between;
+  border-right:1px solid rgba(255,255,255,.08);padding-right:16px}
+.v12 .rgt{flex:1;display:flex;flex-direction:column;justify-content:space-between}
+.v12 .big{font-size:34px}
+.v12 .row{margin:0;flex:none}
+/* 13 bottom-sheet feel, staggered content */
+.v13{--er:36px;--eh:162px}
+.v13 .card>*{opacity:0;transform:translateY(7px);
+  transition:opacity .3s ease,transform .44s var(--ease-drawer)}
+.v13.expanded .card>*{opacity:1;transform:none}
+.v13.expanded .card>*:nth-child(1){transition-delay:.06s}
+.v13.expanded .card>*:nth-child(2){transition-delay:.11s}
+.v13.expanded .card>*:nth-child(3){transition-delay:.16s}
+.v13 .grab{width:30px;height:3px;border-radius:2px;background:rgba(255,255,255,.18);
+  align-self:center;margin:-4px 0 8px}
+/* 14 dot-only, reveals on hover — and a stripped-back card to match */
+.v14{--w:64px;--sh:12px;--ew:224px;--eh:112px}
+.v14 .card{justify-content:center;padding:0 20px}
+.v14 .row{margin:0}
+.v14 .nm{display:none}
+.v14 .pill{justify-content:center;padding:0 10px;gap:7px}
+.v14 .tm{max-width:0;opacity:0;overflow:hidden;
+  transition:max-width .34s var(--ease-drawer),opacity .2s ease}
+.v14 .isle:hover{width:132px}
+.v14 .isle:hover .tm{max-width:60px;opacity:1}
+/* 15 session dots */
+.v15{--w:212px}
+.v15 .sess{display:flex;gap:4px;flex:none}
+.v15 .sess i{width:5px;height:5px;border-radius:50%;border:1px solid rgba(255,255,255,.3)}
+.v15 .sess i.f{background:var(--acc);border-color:var(--acc)}
+.v15{--eh:158px}
+.v15 .hdr{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.v15 .hdr .sess i{width:6px;height:6px}
+/* 16 header bar */
+.v16 .card{padding:0}
+.v16 .hd{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.v16 .bd{flex:1;display:flex;flex-direction:column;padding:10px 16px 14px}
+.v16 .mn{position:static}
+/* 17 mono ticker */
+.v17 .tm,.v17 .big{font-family:ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.01em}
+.v17 .big{font-size:34px;font-weight:400}
+.v17 .big em{font-style:normal;display:inline-block;transition:transform .3s var(--ease-drawer)}
+.v17 .isle:hover .big em{transform:translateY(-1px)}
+/* 18 ambient glow bleeding below the notch */
+.v18 .isle{overflow:visible}
+.v18 .glow{position:absolute;left:50%;top:100%;width:230px;height:90px;
+  transform:translateX(-50%);pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--acc) 40%,transparent),transparent 70%);
+  filter:blur(14px);opacity:.55}
+.v18 .isle>.pill,.v18 .isle>.card{z-index:2}
+.v18 .edge{position:absolute;left:0;right:0;bottom:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--acc) 22%,var(--acc) 62%,transparent);
+  box-shadow:0 0 10px var(--acc);opacity:.85}
+
+/* ============================================================
+   ROUND 2 — one design language per frame, tokens taken from the
+   real DESIGN.md files. Every frame owns a different way to set
+   the duration; all of them are live.
+   ============================================================ */
+.notch[data-pick]{cursor:default}
+.js-num{cursor:ns-resize;-webkit-user-select:none}
+.js-min[contenteditable]{outline:none;cursor:text}
+.js-min[contenteditable]:focus{background:rgba(127,127,127,.22);border-radius:4px;
+  padding:0 3px;margin:0 -3px}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip2{font-size:10px;letter-spacing:.06em;padding:3px 8px;border-radius:999px;
+  border:1px solid currentColor;opacity:.42;cursor:pointer;transition:opacity .16s,background .16s}
+.chip2:hover{opacity:.8}.chip2.on{opacity:1;background:currentColor}
+.chip2.on span{color:#000;mix-blend-mode:difference}
+.step{display:flex;align-items:center;gap:2px}
+.step b{width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-weight:400;font-size:15px;opacity:.5;transition:opacity .14s,transform .1s}
+.step b:hover{opacity:1}.step b:active{transform:scale(.86)}
+.sld{-webkit-appearance:none;width:100%;height:3px;border-radius:2px;background:rgba(127,127,127,.35);
+  outline:none;cursor:pointer}
+.sld::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:currentColor;cursor:grab}
+.pkr{height:78px;width:74px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;
+  text-align:center;-webkit-mask-image:linear-gradient(transparent,#000 32%,#000 68%,transparent)}
+.pkr::-webkit-scrollbar{display:none}
+.pkr i{display:block;height:26px;line-height:26px;scroll-snap-align:center;font-style:normal;
+  font-size:15px;opacity:.32;transition:opacity .18s}
+.pkr i.on{opacity:1}
+.segs{display:flex;gap:2px;cursor:pointer}
+.segs i{flex:1;height:12px;background:currentColor;opacity:.18;transition:opacity .14s}
+.segs i.on{opacity:1}
+.grip{cursor:ew-resize;padding:0 4px;opacity:.4;letter-spacing:-2px}
+.tin{background:transparent;border:0;outline:none;color:inherit;font:inherit;width:64px}
+.hint{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.28}
+
+/* 01 conserved baseline */
+.w01{--acc:#c9b48a}
+/* 02 Linear — near-black canvas, lavender accent, hairline panels */
+.w02{--acc:#5e6ad2;--er:12px;--r:9px}
+.w02 .isle{background:linear-gradient(180deg,#010102 0%,#010102 34%,#0f1011 100%);
+  border-color:#23252a}
+.w02 .nm,.w02 .task{color:#f7f8f8;letter-spacing:-.01em}
+.w02 .tm,.w02 .big{color:#f7f8f8;letter-spacing:-.02em}
+.w02 .hint,.w02 .md{color:#8a8f98}
+.w02 .cb.pl{background:#5e6ad2;color:#fff}
+/* 03 Raycast — deep canvas, white primary, command rows */
+.w03{--acc:#f4f4f6;--r:12px;--er:14px}
+.w03 .isle{background:linear-gradient(180deg,#07080a 0%,#07080a 30%,#0d0e12 100%)}
+.w03 .chips{flex-direction:column;gap:1px;width:100%}
+.w03 .chip2{border:0;border-radius:6px;opacity:.45;padding:5px 8px;display:flex;
+  justify-content:space-between;font-size:11px;letter-spacing:0}
+.w03 .chip2.on{background:rgba(255,255,255,.1);opacity:1}
+.w03 .chip2.on span{color:inherit;mix-blend-mode:normal}
+.w03 .cb.pl{background:#f4f4f6;color:#07080a}
+/* 04 Vercel — pure black, sharp corners, mono, blue link */
+.w04{--acc:#fff;--r:3px;--er:5px;--sh:8px}
+.w04 .isle{background:#000;border-color:#333}
+.w04 .tm,.w04 .big,.w04 .task,.w04 .nm{font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.w04 .big{font-weight:500;letter-spacing:-.04em}
+.w04 .md.on::after{background:#0070f3}
+.w04 .cb.pl{background:#fff;color:#000;border-radius:3px}
+.w04 .cb{border-radius:3px}
+/* 05 Stripe — a LIGHT notch. real departure. */
+.w05{--acc:#533afd;--er:22px}
+.w05 .isle{background:linear-gradient(180deg,#fff 0%,#fff 60%,#f6f9fc 100%);
+  border-color:rgba(0,0,0,.08);box-shadow:0 12px 30px rgba(50,50,93,.16)}
+.w05 .sh{background:#fff}
+.w05 .nm,.w05 .task,.w05 .tm,.w05 .big{color:#0d253d}
+.w05 .big .u,.w05 .md,.w05 .hint{color:#697386}
+.w05 .cb{color:#697386}.w05 .cb.pl{background:#533afd;color:#fff}
+.w05 .dot{background:#533afd;box-shadow:0 0 7px #533afd}
+/* 06 Apple — glass, deep radius, restrained blue */
+.w06{--acc:#0a84ff;--r:22px;--er:34px;--sh:20px}
+.w06 .isle{background:linear-gradient(180deg,rgba(28,28,30,.94) 0%,rgba(28,28,30,.78) 100%);
+  backdrop-filter:blur(40px) saturate(180%);border-color:rgba(255,255,255,.14)}
+.w06 .big{font-weight:200;letter-spacing:-.03em}
+.w06 .cb.pl{background:#0a84ff;color:#fff}
+/* 07 Spotify — #121212 + acid green, circular, chunky */
+.w07{--acc:#1db954;--r:16px;--er:20px}
+.w07 .isle{background:linear-gradient(180deg,#000 0%,#121212 45%,#181818 100%)}
+.w07 .nm,.w07 .task{font-weight:700;letter-spacing:-.01em}
+.w07 .big{font-weight:700;letter-spacing:-.03em}
+.w07 .md{font-weight:700}
+.w07 .cb.pl{background:#1db954;color:#000;width:46px;height:46px}
+/* 08 Ferrari — race red, italic condensed, tachometer */
+.w08{--acc:#da291c;--r:6px;--er:8px}
+.w08 .isle{background:linear-gradient(180deg,#101010 0%,#181818 100%);border-color:#2e2e2e}
+.w08 .big,.w08 .tm{font-style:italic;font-weight:700;letter-spacing:-.04em}
+.w08 .md{font-style:italic;font-weight:700}
+.w08 .cb.pl{background:#da291c;color:#fff;border-radius:5px}
+.w08 .nm{text-transform:uppercase;font-size:10.5px;letter-spacing:.1em}
+/* 09 Tesla — monochrome, hairline weight, wide tracking, no accent */
+.w09{--acc:#fff;--r:2px;--er:3px;--sh:6px}
+.w09 .isle{background:linear-gradient(180deg,#000 0%,#0b0b0c 100%);border-color:#2a2a2a}
+.w09 .big{font-weight:100;font-size:40px;letter-spacing:.02em}
+.w09 .nm,.w09 .task,.w09 .md{font-weight:300;letter-spacing:.22em;text-transform:uppercase;font-size:9.5px}
+.w09 .dot{background:#fff;box-shadow:none;width:4px;height:4px}
+.w09 .cb.pl{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff}
+/* 10 NVIDIA — acid green on black, clipped corners */
+.w10{--acc:#76b900;--r:0;--er:0;--sh:10px}
+.w10 .isle{background:#000;border-color:#1e1e1e;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%)}
+.w10 .nm,.w10 .md{text-transform:uppercase;letter-spacing:.14em;font-size:9.5px}
+.w10 .big{font-weight:500}
+.w10 .cb.pl{background:#76b900;color:#000;border-radius:0}
+.w10 .cb{border-radius:0}
+/* 11 WIRED — editorial, monumental condensed numeral */
+.w11{--acc:#000;--r:0;--er:0;--sh:0px;--ew:330px}
+.w11 .isle{background:#fff;border:1px solid #000;border-top:none}
+.w11 .sh{background:#fff}
+.w11 .nm,.w11 .task{color:#000;text-transform:uppercase;font-size:9.5px;letter-spacing:.16em;font-weight:700}
+.w11 .tm{color:#000;font-weight:700}
+.w11 .big{color:#000;font-weight:800;font-size:62px;letter-spacing:-.05em;
+  font-stretch:condensed;line-height:.88}
+.w11 .big .u{color:#e3000f;font-weight:700}
+.w11 .md{color:#000;opacity:.4}.w11 .md.on{opacity:1}
+.w11 .md.on::after{background:#e3000f;height:3px}
+.w11 .cb{color:#000}.w11 .cb.pl{background:#000;color:#fff;border-radius:0}
+.w11 .dot{background:#e3000f;box-shadow:none;border-radius:0;width:7px;height:7px}
+/* 12 Notion — warm paper, serif, document feel */
+.w12{--acc:#5645d4;--r:5px;--er:6px}
+.w12 .isle{background:linear-gradient(180deg,#fbfbfa 0%,#f7f6f3 100%);
+  border-color:rgba(0,0,0,.09);box-shadow:0 10px 24px rgba(0,0,0,.12)}
+.w12 .sh{background:#fbfbfa}
+.w12 .task,.w12 .nm{color:#37352f;font-family:Georgia,"Iowan Old Style",serif;font-size:13.5px}
+.w12 .tm{color:#37352f}
+.w12 .big{color:#37352f;font-family:Georgia,serif;font-weight:400;font-size:36px}
+.w12 .big .u,.w12 .md,.w12 .hint{color:#9b9a97}
+.w12 .cb{color:#9b9a97}.w12 .cb.pl{background:#5645d4;color:#fff}
+.w12 .dot{background:#5645d4;box-shadow:none}
+/* 13 PlayStation — blue, geometric shape language */
+.w13{--acc:#0070d1;--r:14px;--er:18px}
+.w13 .isle{background:linear-gradient(180deg,#00131f 0%,#001b2e 100%);border-color:#0a3f63}
+.w13 .shp{display:flex;gap:5px;align-items:center;flex:none;opacity:.8}
+.w13 .shp i{width:7px;height:7px;border:1.4px solid var(--acc)}
+.w13 .shp i:nth-child(1){border-radius:50%}
+.w13 .shp i:nth-child(2){transform:rotate(45deg)}
+.w13 .shp i:nth-child(3){clip-path:polygon(50% 0,100% 100%,0 100%);border:0;background:var(--acc)}
+.w13 .cb.pl{background:#0070d1;color:#fff}
+/* 14 Kraken — trading terminal, dense mono ticker */
+.w14{--acc:#7132f5;--r:4px;--er:6px;--ew:340px}
+.w14 .isle{background:linear-gradient(180deg,#05060a 0%,#0b0d14 100%);border-color:#1c2030}
+.w14 *{font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.w14 .big{font-weight:500;font-size:32px;color:#22c55e}
+.w14 .nm,.w14 .task{font-size:10.5px;letter-spacing:.02em;color:#8b93a7}
+.w14 .tm{color:#22c55e}
+.w14 .md{font-size:9.5px;letter-spacing:.08em}
+.w14 .cb.pl{background:#7132f5;color:#fff;border-radius:4px}
+.w14 .cb{border-radius:4px}
+/* 15 Figma — light, multicolour, friendly radius */
+.w15{--acc:#0d99ff;--r:13px;--er:17px}
+.w15 .isle{background:linear-gradient(180deg,#fff 0%,#fcfcfc 100%);
+  border-color:rgba(0,0,0,.08);box-shadow:0 10px 26px rgba(0,0,0,.14)}
+.w15 .sh{background:#fff}
+.w15 .nm,.w15 .task,.w15 .tm{color:#1e1e1e}
+.w15 .big{color:#1e1e1e;font-weight:500}
+.w15 .big .u,.w15 .md,.w15 .hint{color:#8a8a8a}
+.w15 .cb{color:#8a8a8a}.w15 .cb.pl{background:#0d99ff;color:#fff}
+.w15 .fdots{display:flex;gap:3px;flex:none}
+.w15 .fdots i{width:6px;height:6px;border-radius:50%}
+.w15 .fdots i:nth-child(1){background:#f24e1e}.w15 .fdots i:nth-child(2){background:#ff7262}
+.w15 .fdots i:nth-child(3){background:#a259ff}.w15 .fdots i:nth-child(4){background:#1abcfe}
+.w15 .fdots i:nth-child(5){background:#0acf83}
+.w15 .dot{background:#0acf83;box-shadow:none}
+/* 16 Warp — warm terminal, block cursor */
+.w16{--acc:#f7f5f0;--r:7px;--er:9px}
+.w16 .isle{background:linear-gradient(180deg,#211d1a 0%,#2b2622 100%);border-color:#413a34}
+.w16 *{font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.w16 .nm,.w16 .task,.w16 .tm,.w16 .big{color:#f7f5f0}
+.w16 .big{font-weight:400;font-size:30px}
+.w16 .cur{display:inline-block;width:7px;height:15px;background:#f7f5f0;vertical-align:-2px;
+  animation:blink 1.05s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.w16 .cb.pl{background:#f7f5f0;color:#2b2622;border-radius:5px}
+.w16 .cb{border-radius:5px}
+/* 17 Nike — black + volt, bold italic, motion */
+.w17{--acc:#d7ff1e;--r:20px;--er:26px}
+.w17 .isle{background:linear-gradient(180deg,#000 0%,#0a0a0a 100%)}
+.w17 .big{font-weight:800;font-style:italic;font-size:46px;letter-spacing:-.05em}
+.w17 .nm,.w17 .task,.w17 .md{text-transform:uppercase;font-weight:800;font-style:italic;
+  font-size:10.5px;letter-spacing:.02em}
+.w17 .cb.pl{background:#d7ff1e;color:#000;width:46px;height:46px}
+.w17 .strk{position:absolute;left:0;right:0;bottom:0;height:3px;
+  background:linear-gradient(90deg,transparent,#d7ff1e);opacity:.9}
+/* 18 IBM — Carbon grid, functional blue, square */
+.w18{--acc:#0f62fe;--r:0;--er:0;--sh:0px}
+.w18 .isle{background:linear-gradient(180deg,#161616 0%,#262626 100%);border-color:#393939}
+.w18 .nm,.w18 .task{letter-spacing:0}
+.w18 .big{font-weight:300;letter-spacing:-.02em}
+.w18 .md{text-transform:uppercase;font-size:9.5px;letter-spacing:.08em}
+.w18 .md.on::after{height:3px;border-radius:0}
+.w18 .cb{border-radius:0}.w18 .cb.pl{background:#0f62fe;color:#fff;border-radius:0}
+.w18 .dot{border-radius:0;background:#0f62fe;box-shadow:none}
+
+/* ============================================================
+   ROUND 3 — definitive navigation candidates
+   Scoped to .r3 so Rounds 1 and 2 keep their own systems.
+   ============================================================ */
+.r3{
+  --canvas:#07080a;--surface:#0d0e12;--raised:#16181d;--ink:#f4f4f6;
+  --ink-mid:#9ca1ab;--ink-dim:#5f646d;--hairline:#1e2027;
+  --focus:#f4f4f6;--break:#7fc06a;--done:#b9ea9c;
+  --acc:var(--focus);--w:196px;--h:32px;--ew:312px;--eh:150px;
+  --r:18px;--er:20px;--sh:15px;--r3-screen-h:150px;
+  font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;
+}
+.r3 .isle{color:var(--ink);background:var(--surface);border-color:var(--hairline);
+  font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;
+  transition:width 420ms var(--ease-drawer),height 420ms var(--ease-drawer),
+    border-radius 420ms var(--ease-drawer)}
+.r3.r3-vignette-on .isle{background:linear-gradient(180deg,var(--canvas) 0%,var(--canvas) 28%,var(--surface) 100%)}
+.r3.r3-vignette-off .isle{background:var(--surface)}
+.r3 .sh{background:var(--canvas);transition:width 420ms var(--ease-drawer),height 420ms var(--ease-drawer)}
+.r3 .pill{font-family:-apple-system,"SF Pro Text",system-ui,sans-serif}
+.r3 .pill .nm{font-size:12.5px;font-weight:590;letter-spacing:-.01em;color:var(--ink)}
+.r3 .pill .tm{font-size:12.5px;font-weight:590;letter-spacing:-.01em;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.r3 .dot{background:var(--focus);box-shadow:0 0 7px var(--focus)}
+.r3 :focus-visible{outline-color:var(--focus)}
+.r3 .card{padding:0;transform:scale(.99) translateY(4px);transition:opacity 140ms ease-out,transform 200ms ease-out}
+.r3.expanded .card{transform:none}
+.r3-screen{position:absolute;inset:0;overflow:hidden;padding:14px 18px 16px;
+  opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-3px) scale(.99);
+  transition:opacity 140ms ease-out,transform 140ms ease-out,visibility 0s linear 200ms}
+.r3-screen.is-active{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0) scale(1);
+  transition:opacity 200ms ease-out,transform 200ms ease-out,visibility 0s}
+.r3-home{display:flex;flex-direction:column}
+.r3-home .task{font-size:13px;font-weight:500;letter-spacing:-.01em;color:var(--ink)}
+.r3-home .modes{margin-top:10px}
+.r3-home .md{font-size:10px;font-weight:600;color:var(--ink-dim)}
+.r3-home .md.on{color:var(--ink)}
+.r3-home .md.on::after{background:var(--focus)}
+.r3-home .big{font-size:38px;font-weight:300;letter-spacing:-.03em;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.r3-home .big .u{font-size:10px;font-weight:600;letter-spacing:.14em;color:var(--ink-mid)}
+.r3-home .cb{color:var(--ink-mid)}
+.r3-home .cb.pl{background:var(--focus);color:var(--canvas)}
+.r3-home .mn{color:var(--ink-mid)}
+.r3-home .hint{margin-top:auto;color:var(--ink-dim);font-size:10px;letter-spacing:.08em}
+.r3-back{display:flex;align-items:center;gap:6px;width:max-content;padding:0;border:0;color:var(--ink-mid);
+  font-size:11px;cursor:pointer;background:transparent}
+.r3-back svg{width:13px;height:13px}
+.r3-title{margin:10px 0 8px;font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mid)}
+.r3-menu-list{display:flex;flex-direction:column;gap:4px}
+.r3-nav,.r3-action{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:30px;
+  padding:7px 9px;border:0;border-radius:6px;background:transparent;color:var(--ink);text-align:left;cursor:pointer;
+  font:500 13px/1.2 -apple-system,"SF Pro Text",system-ui,sans-serif;transition:background 120ms ease-out,transform 120ms ease-out}
+.r3-nav:hover,.r3-action:hover,.r3-task-row:hover{background:var(--raised)}
+.r3-nav:active,.r3-action:active,.r3-task-row:active{transform:scale(.985)}
+.r3-nav small,.r3-action small{font-size:11px;font-weight:400;color:var(--ink-mid)}
+.r3-list-head{display:flex;align-items:center;justify-content:space-between;margin:8px 0 6px}
+.r3-list-head b{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mid)}
+.r3-add{width:24px;height:24px;padding:0;border:1px solid var(--hairline);border-radius:6px;background:var(--raised);
+  color:var(--ink);font-size:17px;line-height:1;cursor:pointer}
+.r3-task-list{display:flex;flex-direction:column;gap:2px;overflow:auto;max-height:185px;padding-right:2px}
+.r3-task-row{display:flex;align-items:center;gap:8px;width:100%;min-height:32px;padding:5px 8px;
+  border:0;border-radius:6px;background:transparent;color:var(--ink);text-align:left;cursor:pointer;
+  font:500 13px/1.2 -apple-system,"SF Pro Text",system-ui,sans-serif;transition:background 120ms ease-out,transform 120ms ease-out}
+.r3-task-row[aria-current="true"]{background:var(--raised)}
+.r3-task-row .r3-check{width:6px;height:6px;flex:none;border:1px solid var(--ink-mid);border-radius:50%}
+.r3-task-row[aria-current="true"] .r3-check{background:var(--focus);border-color:var(--focus)}
+.r3-task-row .r3-task-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r3-task-row .r3-task-meta{font-size:11px;font-weight:400;color:var(--ink-mid);font-variant-numeric:tabular-nums}
+.r3-create{display:flex;gap:5px;margin-top:5px}
+.r3-create[hidden]{display:none}
+.r3-input{min-width:0;flex:1;padding:6px 8px;border:1px solid var(--hairline);border-radius:6px;background:var(--raised);
+  color:var(--ink);font:13px -apple-system,"SF Pro Text",system-ui,sans-serif;outline:none}
+.r3-input:focus{border-color:var(--ink-mid)}
+.r3-create button{padding:5px 8px;border:1px solid var(--hairline);border-radius:6px;background:var(--raised);color:var(--ink);cursor:pointer}
+.r3-settings-list{display:flex;flex-direction:column;gap:2px;overflow:auto;max-height:205px}
+.r3-setting-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px;padding:5px 8px;
+  border-radius:6px;color:var(--ink);font-size:13px}
+.r3-setting-row small{color:var(--ink-mid);font-size:11px}
+.r3-step{display:flex;align-items:center;gap:7px}
+.r3-step button,.r3-toggle{min-width:28px;height:24px;padding:0 7px;border:1px solid var(--hairline);border-radius:6px;
+  background:var(--raised);color:var(--ink);cursor:pointer;font:500 12px -apple-system,"SF Pro Text",system-ui,sans-serif}
+.r3-step output{min-width:38px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums}
+.r3-toggle[aria-pressed="true"]{background:var(--focus);border-color:var(--focus);color:var(--canvas)}
+.r3-toggle[aria-pressed="true"][data-setting="sound"]{background:var(--break);border-color:var(--break);color:var(--canvas)}
+
+/* C1 Stack */
+.r3c1.r3-view-menu{--ew:280px;--eh:148px}
+.r3c1.r3-view-tasks,.r3c1.r3-view-settings{--ew:332px;--eh:250px}
+/* C2 Command — one persistent command list */
+.r3c2{--ew:360px;--eh:150px}
+.r3c2.r3-command-open{--eh:250px}
+.r3-command{padding:12px 14px}
+.r3-command-search{display:flex;align-items:center;gap:7px;height:30px;padding:0 9px;border-bottom:1px solid var(--hairline);
+  color:var(--ink-mid);font-size:11px}
+.r3-command-search::before{content:'⌕';font-size:15px;color:var(--ink-dim)}
+.r3-command-search input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:var(--ink);
+  font:13px -apple-system,"SF Pro Text",system-ui,sans-serif}
+.r3-command-search input::placeholder{color:var(--ink-dim)}
+.r3-command-list{overflow:auto;height:calc(100% - 38px);padding-top:5px}
+.r3-command-label{padding:7px 8px 4px;color:var(--ink-dim);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+.r3-command-item{display:flex;align-items:center;gap:8px;min-height:29px;padding:5px 8px;border-radius:6px;color:var(--ink);
+  font-size:12px;transition:background 120ms ease-out,transform 120ms ease-out}
+.r3-command-item[hidden]{display:none}
+.r3-command-item:hover{background:var(--raised)}
+.r3-command-item:active{transform:scale(.985)}
+.r3-command-item .r3-command-main{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r3-command-item small{color:var(--ink-mid);font-size:11px}
+.r3-command-item .r3-toggle{flex:none}
+.r3-command .r3-task-list{max-height:none;overflow:visible}
+.r3-command .r3-list-head{margin:2px 0 3px}
+
+/* C3 Tray — fixed timer plus a second slab below it */
+.r3c3{--ew:312px;--eh:150px}
+.r3c3.tray-menu{--eh:286px}
+.r3c3.tray-tasks,.r3c3.tray-settings{--ew:332px;--eh:400px}
+.r3c3 .r3-home{height:150px}
+.r3-tray-panel{position:absolute;left:0;right:0;top:150px;height:250px;padding:12px 18px 16px;
+  background:var(--surface);border-top:1px solid var(--hairline);opacity:0;visibility:hidden;pointer-events:none;
+  transform:translateY(4px);transition:opacity 140ms ease-out,transform 200ms ease-out,visibility 0s linear 200ms}
+.r3c3.tray-open .r3-tray-panel{opacity:1;visibility:visible;pointer-events:auto;transform:none;
+  transition:opacity 200ms ease-out,transform 200ms ease-out,visibility 0s}
+.r3c3 .r3-tray-panel .r3-task-list{max-height:190px}
+.r3-tray-view{display:none;height:100%}
+.r3-tray-view.is-active{display:block}
+.r3-tray-panel .r3-back{margin-bottom:4px}
+
+/* C4 Rail — navigation never leaves the expanded notch */
+.r3c4{--ew:344px;--eh:150px}
+.r3c4.r3-view-timer{--eh:150px}
+.r3-rail-shell{display:grid;grid-template-columns:34px 1fr;height:100%}
+.r3-rail{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:var(--canvas);border-right:1px solid var(--hairline)}
+.r3-rail button{width:26px;height:28px;padding:5px;border:0;border-radius:6px;background:transparent;color:var(--ink-dim);cursor:pointer}
+.r3-rail button:hover,.r3-rail button[aria-current="true"]{background:var(--raised);color:var(--ink)}
+.r3-rail svg{display:block;width:14px;height:14px}
+.r3-rail-content{min-width:0;position:relative}
+.r3-rail-content .r3-screen{padding-left:14px;padding-right:14px}
+.r3c4.r3-view-timer .r3-home{height:150px}
+.r3c4.r3-view-menu{--eh:148px}
+.r3c4.r3-view-tasks,.r3c4.r3-view-settings{--eh:250px}
+.r3c4 .r3-task-list{max-height:185px}
+
+@media (prefers-reduced-motion:reduce){
+  .r3 .isle,.r3 .sh,.r3 .card,.r3-screen,.r3-tray-panel,.r3-nav,.r3-action,.r3-task-row,.r3-command-item{transition-property:opacity,visibility,background!important}
+}
+
+/* the four light-ground frames flip the ink for everything inside */
+.w05 .isle{color:#0d253d}
+.w11 .isle{color:#000}
+.w12 .isle{color:#37352f}
+.w15 .isle{color:#1e1e1e}
+
+/* card heights sized to each picker's real content */
+.w01{--eh:166px}.w02{--eh:166px}.w03{--eh:194px;--ew:300px}.w05{--eh:176px}
+.w06{--eh:180px}.w07{--eh:200px;--ew:280px}.w08{--eh:206px;--ew:280px}
+.w09{--eh:166px}.w10{--eh:170px}.w11{--eh:192px}.w12{--eh:184px}
+.w13{--eh:172px}.w15{--eh:158px}.w16{--eh:150px;--ew:300px}.w17{--eh:172px}
+
+/* ---------------- design-system view ---------------- */
+.spec{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+.spec .box{height:150px;display:flex;align-items:center;justify-content:center;gap:12px;
+  background:#08080a;padding:14px;flex-wrap:wrap}
+.chip{width:52px;height:52px;border-radius:10px}
+.curve{width:100%;height:3px;background:rgba(255,255,255,.12);border-radius:2px;position:relative}
+.curve i{position:absolute;top:-3.5px;width:10px;height:10px;border-radius:50%;background:var(--gold)}
+.spec .nmm{padding:7px 10px;font-size:11px;color:var(--tx2);border-top:1px solid var(--line)}
+.empty{padding:40px;text-align:center;color:var(--tx2)}
+</style>
+
+<div class="bar">
+  <b>Notch UI</b>
+  <div class="tabs">
+    <button class="tb on" data-tab="v">Variants</button>
+    <button class="tb" data-tab="s">System</button>
+    <button class="tb" data-tab="d">Discarded</button>
+  </div>
+  <button id="expAll">Expand all</button>
+  <button id="info">Info</button>
+  <div class="tabs" id="filters">
+    <button class="fl on" data-f="all">All</button>
+    <button class="fl" data-f="keep">Keep</button>
+    <button class="fl" data-f="improve">Improve</button>
+    <button class="fl" data-f="star">★</button>
+  </div>
+  <label class="rng">Cols <input type="range" id="cols" min="2" max="6" value="4"></label>
+  <label class="rng">Zoom <input type="range" id="zoom" min="8" max="24" value="10"></label>
+  <div class="sp"></div>
+  <div class="tally" id="tally"></div>
+  <button id="theme">Light</button>
+  <button id="clear">Clear</button>
+  <button id="copy">Copy JSON</button>
+</div>
+
+<main>
+  <details class="doc">
+    <summary>Animation opportunities — read-only findings on the shipped notch</summary>
+    <div class="body" id="doc"></div>
+  </details>
+
+  <div id="viewV">
+    <details class="rnd" open>
+      <summary>Round 3 · 4 definitive candidates · same timer, four navigation architectures</summary>
+      <div class="grid" id="grid3"></div>
+    </details>
+    <details class="rnd" open>
+      <summary>Round 2 · 18 frames · one design language each · every duration picker is live — set the time</summary>
+      <div class="grid" id="grid2"></div>
+    </details>
+    <details class="rnd">
+      <summary>Round 1 · 18 frames · layout studies on the shipped system</summary>
+      <div class="grid" id="grid"></div>
+    </details>
+  </div>
+
+  <div id="viewS" hidden><div class="grid" id="gridS"></div></div>
+  <div id="viewD" hidden><div class="grid" id="gridD"></div>
+       <div class="empty" id="dEmpty">Nothing killed yet.</div></div>
+</main>
+
+<script>
+const ICO={
+ play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>',
+ pause:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.2v14H7zM13.8 5H17v14h-3.2z"/></svg>',
+ reset:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+ check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.2 5.2L20 7"/></svg>'};
+const ring=(s,p)=>`<svg class="ring rng16" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+  <circle class="bg" cx="${s/2}" cy="${s/2}" r="${s/2-2}"/>
+  <circle class="fg" cx="${s/2}" cy="${s/2}" r="${s/2-2}"
+    stroke-dasharray="${2*Math.PI*(s/2-2)}" stroke-dashoffset="${2*Math.PI*(s/2-2)*(1-p)}"/></svg>`;
+const dot='<div class="dot"></div>', tm='<div class="tm">18:24</div>';
+const bigT='<div class="big">18:24<span class="u">Focus</span></div>';
+const modes='<div class="modes"><div class="md on">Focus</div><div class="md">Break</div></div>';
+const ctls=`<div class="ctls"><div class="cb">${ICO.check}</div><div class="cb pl">${ICO.pause}</div></div>`;
+const task='<div class="task">Magier assignment</div>';
+const menu='<div class="mn">···</div>';
+
+/* 18 variants — each differs in layout, hierarchy AND motion */
+const V=[
+ {n:'Baseline (shipped)',d:'Dot + name + time; card = task, modes, numeral left, controls right.',
+  p:dot+'<div class="nm">Focus</div>'+tm, c:task+menu+modes+`<div class="row">${bigT}${ctls}</div>`},
+ {n:'Progress ring',d:'Ring replaces the dot and the travelling comet — one progress source.',
+  p:ring(13,.62)+'<div class="nm">Focus</div>'+tm,
+  c:task+menu+modes+`<div class="row"><div style="display:flex;align-items:center;gap:14px">${ring(58,.62)}${bigT}</div>${ctls}</div>`},
+ {n:'Edge hairline',d:'Progress reads as a hairline on the notch’s own bottom edge.',
+  p:dot+'<div class="nm">Focus</div>'+tm+'<div class="pbar"></div>',
+  c:task+menu+modes+`<div class="row">${bigT}${ctls}</div><div class="pbar"></div>`},
+ {n:'Time first',d:'Compact is time only; name slides out on hover. Numeral dominates the card.',
+  p:dot+tm+'<div class="nm">Focus</div>', c:task+menu+modes+`<div class="row">${bigT}${ctls}</div>`},
+ {n:'Centred stack',d:'Everything centred, modes demoted to the bottom edge.',
+  p:dot+'<div class="nm">Focus</div>'+tm, c:task+menu+`<div class="row">${bigT}${ctls}</div>`+modes},
+ {n:'Segmented modes',d:'Focus/Break as a real segmented control instead of an underline.',
+  p:dot+'<div class="nm">Focus</div>'+tm, c:task+menu+modes+`<div class="row">${bigT}${ctls}</div>`},
+ {n:'Typographic',d:'No icons anywhere. Controls are lowercase words; hairline weight numeral.',
+  p:'<div class="nm">Focus</div>'+tm,
+  c:task+menu+modes+`<div class="row">${bigT}<div class="ctls"><div class="cb">reset</div><div class="cb pl">pause</div></div></div>`},
+ {n:'Two-line compact',d:'Taller pill: name on top, time + progress track below.',
+  p:'<div class="r1">'+dot+'<div class="nm">Magier assignment</div></div>'+
+    '<div class="r2"><div class="trk"><i></i></div>'+tm+'</div>',
+  c:task+menu+modes+`<div class="row">${bigT}${ctls}</div>`},
+ {n:'Inline transport',d:'Pause without expanding — transport lives in the pill itself.',
+  p:dot+'<div class="nm">Focus</div>'+tm+`<div class="ic">${ICO.pause}</div>`,
+  c:task+menu+modes+`<div class="row">${bigT}${ctls}</div>`},
+ {n:'Wide + short',d:'Lower, wider bar. Progress as discrete dots rather than a sweep.',
+  p:dot+'<div class="nm">Focus</div><div class="pdots"><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i></div>'+tm,
+  c:task+menu+modes+`<div class="row">${bigT}${ctls}</div>`},
+ {n:'Dial',d:'Duration set by a dial instead of scroll-over-numeral. Tallest card.',
+  p:dot+'<div class="nm">Focus</div>'+tm,
+  c:task+menu+`<div class="dial">${ring(92,.62)}<div class="lbl"><b>18:24</b><span>Focus</span></div></div>${ctls}`},
+ {n:'Split columns',d:'Card splits: time + modes left of a rule, task + controls right.',
+  p:dot+'<div class="nm">Focus</div>'+tm,
+  c:`<div class="lft">${bigT}${modes}</div><div class="rgt">${task}<div class="row">${ctls}</div></div>`+menu},
+ {n:'Sheet + stagger',d:'Deeper radius and a grab handle; content rises in a 3-step stagger.',
+  p:dot+'<div class="nm">Focus</div>'+tm,
+  c:'<div class="grab"></div>'+task+modes+`<div class="row">${bigT}${ctls}</div>`},
+ {n:'Dot only',d:'Ambient minimum in both states — no task field, no modes. Time and one button.',
+  p:dot+tm, c:`<div class="row">${bigT}<div class="ctls"><div class="cb pl">${ICO.pause}</div></div></div>`},
+ {n:'Session dots',d:'Both states carry the day’s count — the card leads with today, not this one.',
+  p:dot+'<div class="nm">Focus</div><div class="sess"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div>'+tm,
+  c:`<div class="hdr">${task}<div class="sess"><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i></div></div>`+
+    menu+modes+`<div class="row">${bigT}${ctls}</div>`},
+ {n:'Header bar',d:'Card gets a real header row divided by a hairline from the body.',
+  p:dot+'<div class="nm">Focus</div>'+tm,
+  c:`<div class="hd">${task}${menu}</div><div class="bd">${modes}<div class="row">${bigT}${ctls}</div></div>`},
+ {n:'Mono ticker',d:'Monospaced digits — mechanical, closer to a stopwatch than a clock.',
+  p:dot+'<div class="nm">Focus</div><div class="tm">18:24</div>',
+  c:task+menu+modes+`<div class="row"><div class="big"><em>1</em><em>8</em>:<em>2</em><em>4</em><span class="u">Focus</span></div>${ctls}</div>`},
+ {n:'Ambient glow',d:'Accent bleeds onto the desktop below and lines the card’s edge; both track progress.',
+  p:dot+'<div class="nm">Focus</div>'+tm+'<div class="glow"></div>',
+  c:task+menu+modes+`<div class="row">${bigT}${ctls}</div>`+'<div class="edge"></div><div class="glow"></div>'},
+];
+
+const SYS=[
+ {n:'Accent — focus gold #c9b48a',h:'<div class="chip" style="background:#c9b48a"></div>'},
+ {n:'Accent — break green #7fc06a',h:'<div class="chip" style="background:#7fc06a"></div>'},
+ {n:'Island gradient (opaque top → glass)',
+  h:'<div style="width:150px;height:76px;border-radius:0 0 18px 18px;background:linear-gradient(180deg,#050506 0%,#050506 30%,rgba(9,9,11,.93) 58%,rgba(10,10,12,.86) 100%);border:.5px solid rgba(255,255,255,.07);border-top:none"></div>'},
+ {n:'Corner radii — 18 compact / 30 expanded / 36 sheet',
+  h:'<div style="display:flex;gap:8px">'+[18,30,36].map(r=>`<div style="width:56px;height:56px;background:#1b1b1f;border-radius:0 0 ${r}px ${r}px"></div>`).join('')+'</div>'},
+ {n:'Shoulder fillet — carves the notch into the edge',
+  h:'<div style="display:flex;align-items:flex-start"><div style="width:22px;height:22px;background:#050506;-webkit-mask-image:radial-gradient(circle at 0 100%,transparent 0 22px,#000 22.4px)"></div><div style="width:80px;height:34px;background:#050506;border-radius:0 0 18px 18px"></div><div style="width:22px;height:22px;background:#050506;-webkit-mask-image:radial-gradient(circle at 100% 100%,transparent 0 22px,#000 22.4px)"></div></div>'},
+ {n:'Easing — drawer cubic-bezier(.32,.72,0,1)',
+  h:'<div style="width:80%"><div class="curve"><i style="animation:sl 2.4s cubic-bezier(.32,.72,0,1) infinite alternate"></i></div></div>'},
+ {n:'Easing — ease-out cubic-bezier(.23,1,.32,1)',
+  h:'<div style="width:80%"><div class="curve"><i style="animation:sl 2.4s cubic-bezier(.23,1,.32,1) infinite alternate;background:#7fc06a"></i></div></div>'},
+ {n:'Type scale — 38 / 13 / 12.5 / 10.5',
+  h:'<div style="text-align:left;color:#fff"><div style="font-size:38px;font-weight:300;line-height:1">18:24</div><div style="font-size:13px;margin-top:6px">Magier assignment</div><div style="font-size:12.5px;font-weight:600">18:24</div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;margin-top:3px">Focus</div></div>'},
+];
+
+const DOC=`
+<p>Read-only sweep of the shipped notch (<code>index.html</code>, <code>renderer.js</code>) under the
+four-question gate: frequency, purpose, speed, function. Six survived; the rest were rejected on purpose.</p>
+<h4>Survivors, by leverage</h4>
+<ol>
+<li><b>The time teleports on expand.</b> <code>.pill-time</code> (12.5px, right) and <code>.time</code>
+(38px, left) are the same number, but one fades out while the other fades in — it jumps across the card and
+triples in size. <i>Spatial consistency · occasional.</i> Lazy fix: one time element the
+<code>.expanded</code> class restyles, transitioning font-size + position on the existing
+<code>.58s cubic-bezier(.32,.72,0,1)</code>. No FLIP, no JS.</li>
+<li><b>Mode underline pops.</b> <code>.md.on::after</code> has no transition — only <code>color</code> does.
+Switching Focus↔Break snaps the rule between labels. <i>State indication · occasional.</i>
+One shared underline translating 220ms on the drawer curve.</li>
+<li><b>The pill has no hover or press state.</b> It is the only target in compact state and the window is
+click-through until the cursor enters it — so hover <i>is</i> the "this is live now" signal.
+<i>Feedback · tens/day, so near-imperceptible only:</i> <code>background rgba(255,255,255,.04)</code> at
+140ms, plus <code>scale(.985)</code> on press at 120ms.</li>
+<li><b>Numeral hard-swaps on start.</b> <code>renderer.js</code> swaps <code>25</code>+<code>min</code> for
+<code>24:59</code>+<code>Focus</code> — different width, no bridge. <i>Preventing a jarring change.</i>
+Crossfade the unit word only, 120ms; tabular-nums already stops the digits jittering.</li>
+<li><b>Shoulders don’t breathe with the expand.</b> Radius animates 18→30 but the fillets stay 15px, so
+the silhouette briefly disagrees with itself. <i>Continuity · occasional.</i> Transition
+<code>--sh</code> 15→18px on the same curve.</li>
+<li><b>No exit path on collapse.</b> The card fades but doesn’t retreat. <i>Spatial consistency.</i>
+Reverse its entrance: <code>scale(.98) translateY(-4px)</code>, 260ms ease-in.</li>
+</ol>
+<h4>Rejected on purpose</h4>
+<ul>
+<li><b>Ticking digits.</b> ~1500 updates a session, and it is data being read. <i>Rejected: frequency + function.</i></li>
+<li><b>A second running indicator</b> (breathing border, pulsing glow). The comet already encodes it. <i>Rejected: no new purpose.</i></li>
+<li><b>Escape-to-collapse.</b> Keyboard-initiated. <i>Rejected: never animate keyboard paths.</i></li>
+<li><b>Window drag.</b> <code>setPosition</code> tracks the cursor 1:1; easing would introduce lag. <i>Rejected: direct manipulation.</i></li>
+<li><b>Completion bloom.</b> Already at the delight tier and tuned. No change.</li>
+</ul>
+<h4>Verdict</h4>
+<p>The notch is already close to right for its frequency profile — it is a persistent, always-visible object,
+which argues for less motion, not more. Highest leverage by a distance is #1: the expand is the signature
+gesture, and the number jumping across the card is the one moment that breaks the illusion of a single
+continuous object.</p>`;
+
+/* ---------------- state ---------------- */
+const KEY='notchReview1';
+let S=JSON.parse(localStorage.getItem(KEY)||'{}');
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+const get=id=>S[id]||(S[id]={});
+
+function frame(id,name,desc,inner,cls){
+  return `<div class="fr" data-id="${id}">
+    <div class="stage"><div class="cap">${id}</div>
+      <div class="zoom"><div class="notch ${cls}">
+        <div class="sh l"></div><div class="isle">${inner}</div><div class="sh r"></div>
+      </div></div>
+      <div class="info"><div class="nm">${name}</div><div class="ds">${desc}</div></div>
+    </div>
+    <div class="ctr">
+      <button class="v keep" data-v="keep" title="Keep">✓</button>
+      <button class="v imp" data-v="improve" title="Improve">~</button>
+      <button class="v kill" data-v="kill" title="Kill">✕</button>
+      <button class="st" title="Shortlist">★</button>
+      <select class="sc"><option value="">–</option>${[...Array(10)].map((_,i)=>`<option>${i+1}</option>`).join('')}</select>
+      <div class="sp"></div><button class="cm">note</button>
+    </div>
+    <textarea class="note" placeholder="note…"></textarea>
+  </div>`;
+}
+function specFrame(id,name,html){
+  return `<div class="fr" data-id="${id}"><div class="stage" style="height:auto">
+      <div class="cap">${id}</div><div class="box">${html}</div></div>
+    <div class="nmm">${name}</div>
+    <div class="ctr">
+      <button class="v keep" data-v="keep">✓</button><button class="v imp" data-v="improve">~</button>
+      <button class="v kill" data-v="kill">✕</button><button class="st">★</button>
+      <select class="sc"><option value="">–</option>${[...Array(10)].map((_,i)=>`<option>${i+1}</option>`).join('')}</select>
+      <div class="sp"></div><button class="cm">note</button>
+    </div><textarea class="note"></textarea></div>`;
+}
+
+document.getElementById('doc').innerHTML=DOC;
+document.getElementById('grid').innerHTML=
+  V.map((v,i)=>frame('R1-'+String(i+1).padStart(2,'0'),v.n,v.d,
+    `<div class="pill">${v.p}</div><div class="card">${v.c}</div>`,
+    'v'+String(i+1).padStart(2,'0'))).join('');
+document.getElementById('gridS').innerHTML=
+  SYS.map((s,i)=>specFrame('S-'+String(i+1).padStart(2,'0'),s.n,s.h)).join('');
+
+/* ===================== ROUND 2 ===================== */
+const N=()=>'<span class="js-min">25</span>';
+const CK='<span class="js-clock">25:00</span>';
+const bigMin='<div class="big js-num">'+N()+'<span class="u">min</span></div>';
+function arc(s,extra){const r=s/2-3,L=2*Math.PI*r;
+  return `<svg class="ring" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+    <circle class="bg" cx="${s/2}" cy="${s/2}" r="${r}"/>
+    <circle class="fg js-arc" cx="${s/2}" cy="${s/2}" r="${r}" stroke-dasharray="${L}"
+      stroke-dashoffset="${L*.72}" data-len="${L}" ${extra||''}/></svg>`}
+const chips=(a)=>`<div class="chips js-chips">${a.map(m=>`<div class="chip2" data-m="${m}"><span>${m}</span></div>`).join('')}</div>`;
+const rows=(a)=>`<div class="chips js-chips">${a.map(m=>`<div class="chip2" data-m="${m[0]}"><span>${m[1]}</span><span>${m[0]}m</span></div>`).join('')}</div>`;
+const stepper=`<div class="step"><b data-d="-5">−</b><span class="big js-num" style="font-size:30px">${N()}</span><b data-d="5">+</b></div>`;
+const slider=`<input type="range" class="sld js-sld" min="1" max="90" value="25">`;
+const pickerCol=`<div class="pkr js-pkr">${[...Array(18)].map((_,i)=>`<i data-m="${(i+1)*5}">${(i+1)*5}</i>`).join('')}</div>`;
+const segbar=`<div class="segs js-seg">${'<i></i>'.repeat(12)}</div>`;
+const holdBtn=`<div class="step"><b class="js-hold" data-d="-1">−</b><span class="big js-num" style="font-size:30px">${N()}</span><b class="js-hold" data-d="1">+</b></div>`;
+const tin=(v)=>`<input class="tin js-tin" value="${v}" spellcheck="false">`;
+const hint=t=>`<div class="hint">${t}</div>`;
+
+const V2=[
+ {n:'Baseline — conserved',d:'The shipped design, untouched. Scroll the numeral or click it and type.',
+  pick:'wheel edit',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+modes+`<div class="row">${bigMin}${ctls}</div>`+hint('scroll or click to edit')},
+
+ {n:'Linear',d:'Near-black canvas, lavender accent, hairline panels. Keyboard-first: type the number.',
+  pick:'type wheel',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+modes+`<div class="row"><div class="big js-num">${tin('25')}<span class="u">min</span></div>${ctls}</div>`+hint('type a duration ↵')},
+
+ {n:'Raycast',d:'Command-palette rows instead of a numeral — pick a duration like you pick a command.',
+  pick:'presets',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+rows([[15,'Quick pass'],[25,'Pomodoro'],[45,'Deep work'],[90,'Full block']])},
+
+ {n:'Vercel',d:'Pure black, 3px corners, monospace. A stepper — precise, no gesture to learn.',
+  pick:'stepper wheel',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+modes+`<div class="row">${stepper}${ctls}</div>`},
+
+ {n:'Stripe',d:'A light notch — the real departure. Slider track, soft indigo, elevated card.',
+  pick:'slider',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+`<div class="row">${bigMin}${ctls}</div>`+slider},
+
+ {n:'Apple',d:'Deep glass and 34px radius. An iOS-style wheel you flick — scroll the column.',
+  pick:'picker',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+modes+`<div class="row">${pickerCol}${ctls}</div>`+hint('flick the wheel')},
+
+ {n:'Spotify',d:'Acid green on #121212, heavy weights. Drag around the ring like a volume knob.',
+  pick:'dial',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+`<div class="dial js-dial" style="position:relative;width:88px;height:88px;margin:2px auto 0">
+    ${arc(88)}<div class="lbl" style="position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center"><b style="font-size:26px;font-weight:700">${N()}</b>
+    <span style="font-size:8px;letter-spacing:.16em;opacity:.5">MIN</span></div></div>`},
+
+ {n:'Ferrari',d:'Race red, italic condensed. A tachometer needle you sweep to redline.',
+  pick:'dial',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+`<div class="dial js-dial" style="position:relative;width:96px;height:96px;margin:0 auto">
+    ${arc(96)}<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+    <i class="js-rot" style="display:block;width:2px;height:34px;background:#da291c;
+      transform-origin:50% 100%;margin-top:-34px"></i></div>
+    <div style="position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;
+      padding-bottom:14px"><b style="font-size:22px;font-style:italic;font-weight:700">${N()}</b></div></div>`},
+
+ {n:'Tesla',d:'No accent colour at all. Hairline weight, wide tracking. Scrub sideways to set.',
+  pick:'dragx',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+modes+`<div class="row">${bigMin}${ctls}</div>`+hint('drag ← → to set')},
+
+ {n:'NVIDIA',d:'Acid green, clipped corner, technical. Press and hold — the number accelerates.',
+  pick:'hold',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+modes+`<div class="row">${holdBtn}${ctls}</div>`+hint('press and hold')},
+
+ {n:'WIRED',d:'Editorial. A monumental condensed numeral you click straight into and retype.',
+  pick:'edit',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+modes+`<div class="row">${bigMin}${ctls}</div>`},
+
+ {n:'Notion',d:'Warm paper and a serif. Click the number inline, or take a suggested block.',
+  pick:'edit presets',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+`<div class="row">${bigMin}${ctls}</div>`+chips([15,25,45,90])},
+
+ {n:'PlayStation',d:'Shape language and console blue. Tap the bar to fill it — twelve steps.',
+  pick:'seg',p:'<div class="shp"><i></i><i></i><i></i></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+`<div class="row">${bigMin}${ctls}</div>`+segbar},
+
+ {n:'Kraken',d:'Trading terminal: dense mono, green figures. Scroll to scrub or type an order.',
+  pick:'wheel type',p:'<div class="dot"></div><div class="nm">FOCUS/25M</div>'+CK,
+  c:task+modes+`<div class="row"><div class="big js-num">${tin('25')}<span class="u">min</span></div>${ctls}</div>`},
+
+ {n:'Figma',d:'Light canvas, multicolour marks. Drag the notch’s own edge — width is duration.',
+  pick:'grip',p:'<div class="fdots"><i></i><i></i><i></i><i></i><i></i></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+modes+`<div class="row">${bigMin}<div class="ctls"><div class="grip js-grip">|||</div>${ctls}</div></div>`},
+
+ {n:'Warp',d:'Warm terminal with a block cursor. Type it like a command.',
+  pick:'type',p:'<div class="dot"></div><div class="nm">~/focus</div>'+CK,
+  c:task+`<div class="row" style="align-items:flex-start;flex-direction:column;gap:6px">
+    <div class="big" style="font-size:22px">$ set ${tin('25')}<span class="cur"></span></div>${ctls}</div>`},
+
+ {n:'Nike',d:'Volt on black, bold italic, a speed streak. Swipe up for longer, down for shorter.',
+  pick:'dragy',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK+'<div class="strk"></div>',
+  c:task+modes+`<div class="row">${bigMin}${ctls}</div><div class="strk"></div>`+hint('swipe ↑ ↓')},
+
+ {n:'IBM Carbon',d:'Square grid, functional blue, no radius anywhere. Stepper plus scroll.',
+  pick:'stepper wheel',p:'<div class="dot"></div><div class="nm">Focus</div>'+CK,
+  c:task+menu+modes+`<div class="row">${stepper}${ctls}</div>`},
+];
+
+/* ===================== ROUND 3 ===================== */
+const R3I={
+ back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>',
+ timer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="13" r="7"/><path d="M12 13V9M9 3h6M12 3v2"/></svg>',
+ tasks:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 6h14M5 12h14M5 18h14"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+ settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.4 15a1.7 1.7 0 0 0-1.56-1.03H6v-2.4h.84A1.7 1.7 0 0 0 8.4 10a1.7 1.7 0 0 0-.34-1.88L8 8.06l1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 12.67 5.2V5h2.4v.2a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.4 10a1.7 1.7 0 0 0 1.56 1.03h.04v2.4h-.04A1.7 1.7 0 0 0 19.4 15z"/></svg>'
+};
+const R3TASK_SEED=[
+ {id:'magier',title:'Magier assignment',estimate:3,done:1,archived:false},
+ {id:'fadu',title:'FADU entrega',estimate:5,done:2,archived:false},
+ {id:'portfolio',title:'Portfolio case study',estimate:2,done:0,archived:false},
+ {id:'career',title:'Career batch',estimate:4,done:4,archived:false}
+];
+const R3BACK=(label='Back',target='timer')=>`<button class="r3-back r3-ui" data-r3-screen="${target}">${R3I.back}<span>${label}</span></button>`;
+const R3HOME=()=>`<section class="r3-screen r3-home is-active" data-screen="timer">
+  <div class="task r3-task-title">Magier assignment</div><div class="mn r3-ui" role="button" tabindex="0" aria-label="Open navigation">···</div>
+  ${modes}<div class="row">${bigMin}${ctls}</div>${hint('scroll or click to edit')}
+</section>`;
+const R3MENU=()=>`<section class="r3-screen" data-screen="menu">
+  ${R3BACK('Timer')}<div class="r3-title">Navigate</div><div class="r3-menu-list">
+    <button class="r3-nav r3-ui" data-r3-screen="tasks"><span>Tasks</span><small>4 active</small></button>
+    <button class="r3-nav r3-ui" data-r3-screen="settings"><span>Settings</span><small>Preferences</small></button>
+  </div>
+</section>`;
+const R3TASKS=()=>`<section class="r3-screen" data-screen="tasks">
+  ${R3BACK('Timer','timer')}<div class="r3-list-head"><b>Tasks</b><button class="r3-add r3-ui" type="button" aria-label="Create task">+</button></div>
+  <div class="r3-task-list"></div>${R3CREATE()}
+</section>`;
+const R3CREATE=()=>`<form class="r3-create r3-ui" hidden><input class="r3-input" aria-label="New task title" placeholder="New task" maxlength="60"><button type="submit">Add</button></form>`;
+const R3SETTINGS=()=>`<section class="r3-screen" data-screen="settings">
+  ${R3BACK('Timer','timer')}<div class="r3-title">Settings</div><div class="r3-settings-list">
+    <div class="r3-setting-row"><span>Focus length</span><span class="r3-step"><button class="r3-ui" data-r3-adjust="focus" data-delta="-5">−</button><output data-r3-output="focus">25m</output><button class="r3-ui" data-r3-adjust="focus" data-delta="5">+</button></span></div>
+    <div class="r3-setting-row"><span>Break length</span><span class="r3-step"><button class="r3-ui" data-r3-adjust="break" data-delta="-1">−</button><output data-r3-output="break">5m</output><button class="r3-ui" data-r3-adjust="break" data-delta="1">+</button></span></div>
+    <div class="r3-setting-row"><span>Vignette <small>edge shading</small></span><button class="r3-toggle r3-ui" data-setting="vignette" aria-pressed="true">On</button></div>
+    <div class="r3-setting-row"><span>Launch at login</span><button class="r3-toggle r3-ui" data-setting="login" aria-pressed="false">Off</button></div>
+    <div class="r3-setting-row"><span>Tray icon</span><button class="r3-toggle r3-ui" data-setting="tray" aria-pressed="true">On</button></div>
+    <div class="r3-setting-row"><span>Sound <small>session end</small></span><button class="r3-toggle r3-ui" data-setting="sound" aria-pressed="true">On</button></div>
+  </div>
+</section>`;
+const R3STACK=()=>R3HOME()+R3MENU()+R3TASKS()+R3SETTINGS();
+const R3COMMAND=()=>`<section class="r3-screen r3-command" data-screen="command">
+  <div class="r3-command-search"><input class="r3-input r3-command-input r3-ui" aria-label="Command search" placeholder="Search tasks, settings, actions" autocomplete="off"></div>
+  <div class="r3-command-list">
+    <button class="r3-command-item r3-action r3-ui" data-search="timer home return" data-r3-command="timer"><span class="r3-command-main">Timer</span><small>Return</small></button>
+    <div class="r3-command-label">Actions</div>
+    <button class="r3-command-item r3-action r3-ui" data-search="45 focus duration" data-r3-command="focus:45"><span class="r3-command-main">Set focus to 45m</span><small>Enter</small></button>
+    <button class="r3-command-item r3-action r3-ui" data-search="wri writing portfolio" data-r3-command="task:portfolio"><span class="r3-command-main">Writing task — Portfolio case study</span><small>Arm</small></button>
+    <button class="r3-command-item r3-action r3-ui" data-search="vig vignette toggle" data-r3-command="toggle:vignette"><span class="r3-command-main">Toggle vignette</span><small>On / Off</small></button>
+    <div class="r3-list-head"><b>Tasks</b><button class="r3-add r3-ui" type="button" aria-label="Create task">+</button></div>
+    <div class="r3-task-list"></div>
+    <div class="r3-command-label">Settings</div>
+    <div class="r3-command-item" data-search="focus length duration"><span class="r3-command-main">Focus length</span><span class="r3-step"><button class="r3-ui" data-r3-adjust="focus" data-delta="-5">−</button><output data-r3-output="focus">25m</output><button class="r3-ui" data-r3-adjust="focus" data-delta="5">+</button></span></div>
+    <div class="r3-command-item" data-search="break length rest"><span class="r3-command-main">Break length</span><span class="r3-step"><button class="r3-ui" data-r3-adjust="break" data-delta="-1">−</button><output data-r3-output="break">5m</output><button class="r3-ui" data-r3-adjust="break" data-delta="1">+</button></span></div>
+    <div class="r3-command-item" data-search="launch login"><span class="r3-command-main">Launch at login</span><button class="r3-toggle r3-ui" data-setting="login" aria-pressed="false">Off</button></div>
+    <div class="r3-command-item" data-search="tray icon menu bar"><span class="r3-command-main">Tray icon</span><button class="r3-toggle r3-ui" data-setting="tray" aria-pressed="true">On</button></div>
+    <div class="r3-command-item" data-search="sound session end"><span class="r3-command-main">Sound</span><button class="r3-toggle r3-ui" data-setting="sound" aria-pressed="true">On</button></div>
+    ${R3CREATE()}
+  </div>
+</section>`;
+const R3TRAY=()=>R3HOME()+`<div class="r3-tray-panel r3-ui">
+  <section class="r3-tray-view is-active" data-tray-view="menu">${R3BACK('Close')}<div class="r3-title">Browse</div><div class="r3-menu-list">
+    <button class="r3-nav r3-ui" data-tray="tasks"><span>Tasks</span><small>Keep the clock visible</small></button>
+    <button class="r3-nav r3-ui" data-tray="settings"><span>Settings</span><small>Preferences</small></button>
+  </div></section>
+  <section class="r3-tray-view" data-tray-view="tasks">${R3BACK('Browse')}<div class="r3-list-head"><b>Tasks</b><button class="r3-add r3-ui" type="button" aria-label="Create task">+</button></div><div class="r3-task-list"></div>${R3CREATE()}</section>
+  <section class="r3-tray-view" data-tray-view="settings">${R3BACK('Browse')}<div class="r3-title">Settings</div><div class="r3-settings-list">
+    <div class="r3-setting-row"><span>Focus length</span><span class="r3-step"><button class="r3-ui" data-r3-adjust="focus" data-delta="-5">−</button><output data-r3-output="focus">25m</output><button class="r3-ui" data-r3-adjust="focus" data-delta="5">+</button></span></div>
+    <div class="r3-setting-row"><span>Break length</span><span class="r3-step"><button class="r3-ui" data-r3-adjust="break" data-delta="-1">−</button><output data-r3-output="break">5m</output><button class="r3-ui" data-r3-adjust="break" data-delta="1">+</button></span></div>
+    <div class="r3-setting-row"><span>Vignette</span><button class="r3-toggle r3-ui" data-setting="vignette" aria-pressed="true">On</button></div>
+    <div class="r3-setting-row"><span>Launch at login</span><button class="r3-toggle r3-ui" data-setting="login" aria-pressed="false">Off</button></div>
+    <div class="r3-setting-row"><span>Tray icon</span><button class="r3-toggle r3-ui" data-setting="tray" aria-pressed="true">On</button></div>
+  </div></section>
+</div>`;
+const R3RAIL=()=>`<div class="r3-rail-shell"><nav class="r3-rail r3-ui" aria-label="Navigation">
+  <button class="r3-ui" data-r3-screen="timer" aria-label="Timer" aria-current="true">${R3I.timer}</button>
+  <button class="r3-ui" data-r3-screen="tasks" aria-label="Tasks">${R3I.tasks}</button>
+  <button class="r3-ui" data-r3-screen="settings" aria-label="Settings">${R3I.settings}</button>
+</nav><div class="r3-rail-content">
+  ${R3HOME()}${R3MENU()}${R3TASKS()}${R3SETTINGS()}
+</div></div>`;
+const R3=[
+ {n:'C1 Stack',d:'Screens replace each other in place. One back chevron and one clear destination at a time.',kind:'stack',html:R3STACK(),cls:'r3 r3c1" data-r3="stack" data-pick="wheel edit" data-min="25'},
+ {n:'C2 Command',d:'A persistent Raycast-style list filters tasks, settings and actions without changing screens.',kind:'command',html:R3HOME()+R3COMMAND(),cls:'r3 r3c2" data-r3="command" data-pick="wheel edit" data-min="25'},
+ {n:'C3 Tray',d:'The timer stays put while a second slab slides below it for tasks and settings.',kind:'tray',html:R3TRAY(),cls:'r3 r3c3" data-r3="tray" data-pick="wheel edit" data-min="25'},
+ {n:'C4 Rail',d:'A 34px rail is always visible inside the expanded notch; content swaps beside it.',kind:'rail',html:R3RAIL(),cls:'r3 r3c4" data-r3="rail" data-pick="wheel edit" data-min="25'}
+];
+document.getElementById('grid3').innerHTML=R3.map((v,i)=>frame('R3-'+String(i+1).padStart(2,'0'),v.n,v.d,
+  `<div class="pill"><div class="dot"></div><div class="nm r3-pill-task">Magier assignment</div><div class="tm js-clock">25:00</div></div><div class="card r3-card">${v.html}</div>`,v.cls)).join('');
+
+document.getElementById('grid2').innerHTML=
+  V2.map((v,i)=>frame('R2-'+String(i+1).padStart(2,'0'),v.n,v.d,
+    `<div class="pill">${v.p}</div><div class="card">${v.c}</div>`,
+    'w'+String(i+1).padStart(2,'0')+'" data-pick="'+v.pick+'" data-min="25')).join('');
+
+const R3STATE=new WeakMap();
+const R3ESC=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function r3State(n){
+  let st=R3STATE.get(n); if(st)return st;
+  st={tasks:R3TASK_SEED.map(t=>({...t})),armed:'magier',focus:25,break:5,
+    vignette:true,login:false,tray:true,sound:true,mode:'focus',paused:false};
+  R3STATE.set(n,st); return st;
+}
+function r3TaskMarkup(n){
+  const st=r3State(n);
+  return st.tasks.filter(t=>!t.archived).map(t=>`<button class="r3-task-row r3-ui" data-task-id="${R3ESC(t.id)}" data-search="${R3ESC(t.title.toLowerCase())}" aria-current="${st.armed===t.id}">
+    <span class="r3-check"></span><span class="r3-task-name">${R3ESC(t.title)}</span><span class="r3-task-meta">${t.done}/${t.estimate}</span></button>`).join('');
+}
+function r3RenderTasks(n){n.querySelectorAll('.r3-task-list').forEach(list=>{list.innerHTML=r3TaskMarkup(n)});}
+function r3UpdatePill(n){
+  const st=r3State(n),t=st.tasks.find(x=>x.id===st.armed)||st.tasks[0];
+  n.querySelectorAll('.r3-pill-task,.r3-task-title').forEach(e=>e.textContent=t?.title||'Choose a task');
+  n.querySelectorAll('.r3-home .md').forEach(e=>e.classList.toggle('on',e.textContent.toLowerCase()===st.mode));
+  n.classList.toggle('r3-vignette-on',st.vignette); n.classList.toggle('r3-vignette-off',!st.vignette);
+  n.querySelectorAll('.r3-toggle').forEach(b=>{
+    const on=!!st[b.dataset.setting]; b.setAttribute('aria-pressed',on); b.textContent=on?'On':'Off';
+  });
+  n.querySelectorAll('[data-r3-output="focus"]').forEach(e=>e.textContent=st.focus+'m');
+  n.querySelectorAll('[data-r3-output="break"]').forEach(e=>e.textContent=st.break+'m');
+}
+function r3SetView(n,screen){
+  n.querySelectorAll('.r3-screen').forEach(s=>s.classList.toggle('is-active',s.dataset.screen===screen));
+  [...n.classList].filter(c=>c.indexOf('r3-view-')===0).forEach(c=>n.classList.remove(c));
+  n.classList.add('r3-view-'+screen);
+  n.querySelectorAll('.r3-rail button').forEach(b=>b.setAttribute('aria-current',b.dataset.r3Screen===screen?'true':'false'));
+  fit();
+}
+function r3SetTray(n,view){
+  [...n.classList].filter(c=>c.indexOf('tray-')===0).forEach(c=>n.classList.remove(c));
+  n.querySelectorAll('.r3-tray-view').forEach(s=>s.classList.toggle('is-active',s.dataset.trayView===view));
+  if(view){n.classList.add('tray-open','tray-'+view)}else n.classList.remove('tray-open');
+  fit();
+}
+function r3Command(n,cmd){
+  const st=r3State(n);
+  if(cmd==='timer'){n.classList.remove('r3-command-open');r3SetView(n,'timer');return}
+  if(cmd==='focus:45'){st.focus=45;setMin(n,45);r3UpdatePill(n);return}
+  if(cmd==='toggle:vignette'){st.vignette=!st.vignette;r3UpdatePill(n);return}
+  if(cmd&&cmd.indexOf('task:')===0){st.armed=cmd.slice(5);r3RenderTasks(n);r3UpdatePill(n)}
+}
+function r3ShowCreate(n){
+  const f=n.querySelector('.r3-create:not([hidden])')||n.querySelector('.r3-create');
+  if(!f)return; f.hidden=false; f.querySelector('input').focus();
+}
+function r3Adjust(n,key,delta){
+  const st=r3State(n),min=key==='focus'?5:1,max=key==='focus'?180:60;
+  st[key]=Math.max(min,Math.min(max,st[key]+delta));
+  if(key==='focus'&&st.mode==='focus')setMin(n,st.focus); if(key==='break'&&st.mode==='break')setMin(n,st.break);
+  r3UpdatePill(n);
+}
+function r3SelectTask(n,id){const st=r3State(n);if(st.tasks.some(t=>t.id===id)){st.armed=id;r3RenderTasks(n);r3UpdatePill(n)}}
+function r3SubmitTask(n,form){
+  const input=form.querySelector('input'),title=input.value.trim(); if(!title)return;
+  const st=r3State(n); st.tasks.push({id:'custom-'+Date.now(),title,estimate:1,done:0,archived:false});
+  input.value='';form.hidden=true;r3RenderTasks(n);r3UpdatePill(n);
+}
+function r3Filter(n,q){
+  q=q.trim().toLowerCase(); n.querySelectorAll('.r3-command-list [data-search]').forEach(e=>e.hidden=!!q&&!e.dataset.search.includes(q));
+}
+function r3Mode(n,mode){
+  const st=r3State(n);st.mode=mode;setMin(n,mode==='focus'?st.focus:st.break);r3UpdatePill(n);
+}
+function r3HandleClick(n,e){
+  const el=e.target.closest('.r3-ui,.r3-task-row,.md,.cb'); if(!el||!n.contains(el))return;
+  e.stopPropagation();
+  const st=r3State(n),kind=n.dataset.r3;
+  if(el.classList.contains('mn')){
+    if(kind==='stack'||kind==='rail')r3SetView(n,'menu');
+    else if(kind==='command'){n.classList.add('expanded','r3-command-open');n.querySelectorAll('.r3-screen').forEach(s=>s.classList.toggle('is-active',s.dataset.screen==='command'));fit()}
+    else r3SetTray(n,'menu');
+    return;
+  }
+  if(el.classList.contains('md')){r3Mode(n,el.textContent.toLowerCase());return}
+  if(el.classList.contains('r3-task-row')){r3SelectTask(n,el.dataset.taskId);return}
+  if(el.classList.contains('r3-add')){r3ShowCreate(n);return}
+  if(el.dataset.r3Adjust){r3Adjust(n,el.dataset.r3Adjust,+el.dataset.delta);return}
+  if(el.classList.contains('r3-toggle')){st[el.dataset.setting]=!st[el.dataset.setting];r3UpdatePill(n);return}
+  if(el.dataset.r3Command){r3Command(n,el.dataset.r3Command);return}
+  if(el.dataset.tray){r3SetTray(n,el.dataset.tray);return}
+  if(el.dataset.r3Screen){
+    if(kind==='tray')r3SetTray(n,el.dataset.r3Screen==='timer'?null:el.dataset.r3Screen);
+    else r3SetView(n,el.dataset.r3Screen);
+    return;
+  }
+  if(el.classList.contains('cb')){
+    if(el.classList.contains('pl')){st.paused=!st.paused;el.innerHTML=st.paused?ICO.play:ICO.pause;n.classList.toggle('r3-paused',st.paused);return}
+    const t=st.tasks.find(x=>x.id===st.armed);if(t)t.done=Math.min(t.estimate,t.done+1);r3RenderTasks(n);return;
+  }
+}
+function r3Wire(n){
+  r3State(n);r3RenderTasks(n);r3UpdatePill(n);
+  n.addEventListener('click',e=>r3HandleClick(n,e));
+  n.querySelectorAll('.r3-create').forEach(f=>f.addEventListener('submit',e=>{e.preventDefault();e.stopPropagation();r3SubmitTask(n,f)}));
+  n.querySelectorAll('.r3-command-input').forEach(i=>{
+    i.addEventListener('input',()=>r3Filter(n,i.value));
+    i.addEventListener('keydown',e=>{if(e.key!=='Enter')return;e.preventDefault();
+      const hit=[...n.querySelectorAll('.r3-command-list [data-search]:not([hidden])')][0];if(hit)hit.click();});
+  });
+}
+
+/* restore + wire */
+function paint(fr){
+  const st=S[fr.dataset.id]||{};   // read-only — don't create empty rows just by rendering
+  fr.querySelectorAll('.v').forEach(b=>b.classList.toggle('on',st.verdict===b.dataset.v));
+  fr.querySelector('.st').classList.toggle('on',!!st.star);
+  fr.querySelector('.sc').value=st.score||'';
+  const n=fr.querySelector('.note');
+  n.value=st.note||''; n.classList.toggle('on',!!st.note);
+}
+document.querySelectorAll('.fr').forEach(fr=>fr.dataset.home=fr.parentElement.id);
+document.querySelectorAll('.fr').forEach(fr=>{
+  const id=fr.dataset.id; paint(fr);
+  fr.querySelectorAll('.v').forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const st=get(id); st.verdict=st.verdict===b.dataset.v?null:b.dataset.v;
+    save();paint(fr);refresh()});
+  fr.querySelector('.st').onclick=e=>{e.stopPropagation();
+    const st=get(id);st.star=!st.star;save();paint(fr);refresh()};
+  fr.querySelector('.sc').onchange=e=>{get(id).score=+e.target.value||null;save();refresh()};
+  fr.querySelector('.cm').onclick=e=>{e.stopPropagation();
+    fr.querySelector('.note').classList.toggle('on');fr.querySelector('.note').focus()};
+  fr.querySelector('.note').oninput=e=>{get(id).note=e.target.value.trim()||null;save()};
+  const stage=fr.querySelector('.stage');
+  if(stage) stage.onclick=e=>{
+    // a click on a control is for the control, never for the expand toggle
+    if(e.target.closest('.js-min,.js-num,.js-dial,.js-grip,.chip2,.step,.sld,.pkr,.segs,.tin,.cb,.md,.mn,.r3-ui,.r3-screen,.r3-tray-panel,.r3-rail')) return;
+    const n=e.target.closest('.notch');
+    if(n){n.classList.toggle('expanded');fit();return}          // click the notch → toggle state
+    document.querySelectorAll('.fr').forEach(o=>o!==fr&&o.classList.remove('info-on'));
+    fr.classList.toggle('info-on');
+  };
+});
+
+/* toolbar */
+const $=id=>document.getElementById(id);
+
+/* widest variant is v12 at 344 + 2 shoulders; fit into the cell, never clip.
+   ponytail: one constant beats measuring every variant's real width. */
+const DESIGN_W=392;
+let userZoom=1;
+function fit(){
+  document.querySelectorAll('.fr .stage').forEach(s=>{
+    const z=s.querySelector('.zoom'); if(!z) return;
+    const w=s.clientWidth; if(!w) return;              // hidden tab → 0, refit on show
+    const k=Math.min(userZoom, w/DESIGN_W);
+    z.style.transform=`scale(${k})`;
+    const n=z.querySelector('.notch');
+    const eh=n&&n.classList.contains('expanded')?parseFloat(getComputedStyle(n).getPropertyValue('--eh'))+25:214;
+    s.style.height=(Math.max(214,eh)*k+22)+'px';
+  });
+}
+addEventListener('resize',fit);
+$('cols').oninput=e=>{document.documentElement.style.setProperty('--cols',e.target.value);fit()};
+$('zoom').oninput=e=>{userZoom=e.target.value/10;fit()};
+$('info').onclick=()=>{document.body.classList.toggle('info-all');
+  $('info').classList.toggle('on',document.body.classList.contains('info-all'))};
+$('expAll').onclick=()=>{const any=document.querySelector('.notch:not(.expanded)');
+  document.querySelectorAll('.notch').forEach(n=>n.classList.toggle('expanded',!!any));
+  $('expAll').textContent=any?'Collapse all':'Expand all';fit()};
+const isLight=()=>getComputedStyle(document.documentElement)
+  .getPropertyValue('--bg').trim().startsWith('#ec');
+const labelTheme=()=>$('theme').textContent=isLight()?'Dark':'Light';
+$('theme').onclick=()=>{document.documentElement.dataset.theme=isLight()?'dark':'light';labelTheme()};
+labelTheme();   // respect the OS preference on first paint, not a hardcoded guess
+$('clear').onclick=()=>{if(!confirm('Clear every verdict?'))return;
+  S={};save();document.querySelectorAll('.fr').forEach(paint);refresh()};
+$('copy').onclick=()=>{
+  const frames=[...document.querySelectorAll('#grid3 .fr,#grid2 .fr,#grid .fr,#gridS .fr')].map(fr=>{
+    const id=fr.dataset.id,st=S[id]||{};
+    if(!st.verdict&&!st.star&&!st.score&&!st.note)return null;
+    return {id,name:fr.querySelector('.info .nm')?.textContent||fr.querySelector('.nmm')?.textContent,
+            verdict:st.verdict||null,score:st.score||null,star:!!st.star,note:st.note||null};
+  }).filter(Boolean);
+  const out={round:3,date:new Date().toISOString().slice(0,10),frames,
+    starred:frames.filter(f=>f.star).map(f=>f.id)};
+  navigator.clipboard.writeText(JSON.stringify(out,null,2));
+  $('copy').textContent='Copied ✓';setTimeout(()=>$('copy').textContent='Copy JSON',1400);
+};
+document.querySelectorAll('.tb').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tb').forEach(o=>o.classList.toggle('on',o===b));
+  viewV.hidden=b.dataset.tab!=='v';viewS.hidden=b.dataset.tab!=='s';viewD.hidden=b.dataset.tab!=='d';
+  fit();   // a hidden frame reports clientWidth 0 — always refit once visible
+});
+let filt='all';
+document.querySelectorAll('.fl').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.fl').forEach(o=>o.classList.toggle('on',o===b));
+  filt=b.dataset.f;refresh()});
+
+/* killed frames physically move to Discarded; un-kill returns them home */
+function refresh(){
+  const gd=$('gridD');
+  document.querySelectorAll('#grid3 .fr,#grid2 .fr,#grid .fr,#gridD .fr').forEach(fr=>{
+    const st=S[fr.dataset.id]||{};
+    const target=st.verdict==='kill'?gd:$(fr.dataset.home);
+    if(target&&fr.parentElement!==target)target.append(fr);
+    fr.classList.toggle('hide',
+      filt==='star'?!st.star:(filt!=='all'&&st.verdict!==filt));
+  });
+  ['grid3','grid2','grid'].forEach(id=>{
+    const host=$(id); if(!host)return;
+    [...host.children].sort((a,b)=>a.dataset.id.localeCompare(b.dataset.id,undefined,{numeric:true})).forEach(fr=>host.append(fr));
+  });
+  $('dEmpty').hidden=gd.children.length>0;
+  const all=Object.values(S);
+  $('tally').textContent=`${all.filter(v=>v.verdict==='keep').length} keep · `+
+    `${all.filter(v=>v.verdict==='improve').length} improve · `+
+    `${all.filter(v=>v.verdict==='kill').length} kill · `+
+    `${all.filter(v=>v.star).length} ★`;
+}
+/* ============================================================
+   duration engine — one clamp, one setter, one handler per gesture.
+   Every frame declares which gestures it wants via data-pick.
+   ============================================================ */
+const MAXM=90;
+const CLAMP=v=>Math.max(1,Math.min(180,Math.round(v)));
+const getMin=n=>+n.dataset.min||25;
+function setMin(n,v){
+  const m=CLAMP(v); n.dataset.min=m;
+  n.querySelectorAll('.js-min').forEach(e=>{if(e!==document.activeElement)e.textContent=m});
+  n.querySelectorAll('.js-clock').forEach(e=>e.textContent=String(m).padStart(2,'0')+':00');
+  n.querySelectorAll('.js-tin').forEach(e=>{if(e!==document.activeElement)e.value=m});
+  n.querySelectorAll('.js-sld').forEach(e=>e.value=Math.min(MAXM,m));
+  n.querySelectorAll('.js-arc').forEach(e=>
+    e.style.strokeDashoffset=+e.dataset.len*(1-Math.min(MAXM,m)/MAXM));
+  n.querySelectorAll('.js-rot').forEach(e=>
+    e.style.transform=`rotate(${-118+Math.min(MAXM,m)/MAXM*236}deg)`);
+  n.querySelectorAll('.js-seg i').forEach((e,i)=>
+    e.classList.toggle('on',i<Math.round(Math.min(MAXM,m)/MAXM*12)));
+  n.querySelectorAll('.js-chips .chip2').forEach(e=>e.classList.toggle('on',+e.dataset.m===m));
+  n.querySelectorAll('.js-pkr i').forEach(e=>e.classList.toggle('on',+e.dataset.m===m));
+  if(n.dataset.pick.includes('grip')){          // only the width-as-duration frame
+    n.style.setProperty('--w',(150+Math.min(MAXM,m)/MAXM*90)+'px');
+    n.style.setProperty('--ew',(250+Math.min(MAXM,m)/MAXM*110)+'px');
+  }
+}
+/* shared pointer-drag: hands back dx, dy and the value at grab time */
+function onDrag(el,fn){
+  if(!el) return;
+  el.addEventListener('pointerdown',e=>{
+    e.preventDefault(); e.stopPropagation();
+    const sx=e.clientX, sy=e.clientY, s0=getMin(el.closest('.notch'));
+    el.setPointerCapture(e.pointerId);
+    const mv=ev=>fn(ev.clientX-sx, ev.clientY-sy, s0);
+    const up=()=>el.removeEventListener('pointermove',mv);
+    el.addEventListener('pointermove',mv);
+    el.addEventListener('pointerup',up,{once:true});
+    el.addEventListener('pointercancel',up,{once:true});
+  });
+}
+document.querySelectorAll('.notch[data-pick]').forEach(n=>{
+  const has=k=>n.dataset.pick.split(' ').includes(k);
+  const num=n.querySelector('.js-num');
+
+  if(has('wheel')&&num) num.addEventListener('wheel',e=>{
+    e.preventDefault(); setMin(n,getMin(n)+(e.deltaY<0?1:-1)*(e.shiftKey?5:1));
+  },{passive:false});
+
+  if(has('edit')) n.querySelectorAll('.js-min').forEach(el=>{
+    el.addEventListener('click',e=>{e.stopPropagation();
+      el.contentEditable='true'; el.focus(); getSelection().selectAllChildren(el)});
+    el.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault(); el.blur()}
+      if(e.key==='ArrowUp'){e.preventDefault(); setMin(n,getMin(n)+1)}
+      if(e.key==='ArrowDown'){e.preventDefault(); setMin(n,getMin(n)-1)}});
+    el.addEventListener('blur',()=>{el.contentEditable='false';
+      setMin(n,parseInt(el.textContent,10)||25)});
+  });
+
+  if(has('dragx')) onDrag(num,(dx,_,s0)=>setMin(n,s0+dx/3));
+  if(has('dragy')) onDrag(num,(_,dy,s0)=>setMin(n,s0-dy/3));
+  if(has('grip'))  onDrag(n.querySelector('.js-grip'),(dx,_,s0)=>setMin(n,s0+dx/2));
+
+  if(has('dial')){
+    const d=n.querySelector('.js-dial');
+    const at=e=>{const r=d.getBoundingClientRect();
+      let a=Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2))*180/Math.PI+90;
+      if(a<0)a+=360; return Math.max(1,a/360*MAXM)};
+    d.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();
+      d.setPointerCapture(e.pointerId); setMin(n,at(e));
+      const mv=ev=>setMin(n,at(ev));
+      d.addEventListener('pointermove',mv);
+      d.addEventListener('pointerup',()=>d.removeEventListener('pointermove',mv),{once:true})});
+  }
+
+  if(has('presets')) n.querySelectorAll('.chip2').forEach(c=>
+    c.addEventListener('click',e=>{e.stopPropagation(); setMin(n,+c.dataset.m)}));
+
+  if(has('stepper')) n.querySelectorAll('.step b').forEach(b=>
+    b.addEventListener('click',e=>{e.stopPropagation(); setMin(n,getMin(n)+ +b.dataset.d)}));
+
+  if(has('slider')){const s=n.querySelector('.js-sld');
+    s.addEventListener('input',e=>{e.stopPropagation(); setMin(n,+s.value)});
+    s.addEventListener('click',e=>e.stopPropagation());}
+
+  if(has('picker')){const p=n.querySelector('.js-pkr'); let t;
+    p.addEventListener('scroll',()=>{clearTimeout(t); t=setTimeout(()=>{
+      const mid=p.scrollTop+p.clientHeight/2;
+      let best,bd=1e9;
+      p.querySelectorAll('i').forEach(i=>{
+        const d=Math.abs(i.offsetTop+i.offsetHeight/2-mid); if(d<bd){bd=d;best=i}});
+      if(best) setMin(n,+best.dataset.m);
+    },70)});}
+
+  if(has('hold')) n.querySelectorAll('.js-hold').forEach(b=>{
+    let iv,sp,acc;
+    const start=e=>{e.preventDefault(); e.stopPropagation();
+      const d=+b.dataset.d; setMin(n,getMin(n)+d); sp=260; acc=0;
+      const tick=()=>{acc++; setMin(n,getMin(n)+d*(acc>14?5:1));
+        sp=Math.max(45,sp*.82); iv=setTimeout(tick,sp)};
+      iv=setTimeout(tick,sp)};
+    const stop=()=>clearTimeout(iv);
+    b.addEventListener('pointerdown',start);
+    b.addEventListener('pointerup',stop); b.addEventListener('pointerleave',stop);
+  });
+
+  if(has('type')){const i=n.querySelector('.js-tin');
+    i.addEventListener('click',e=>e.stopPropagation());
+    i.addEventListener('keydown',e=>{e.stopPropagation(); if(e.key==='Enter')i.blur()});
+    i.addEventListener('change',()=>setMin(n,parseInt(i.value,10)||25));
+    i.addEventListener('blur',()=>setMin(n,parseInt(i.value,10)||25));}
+
+  if(has('seg')){const s=n.querySelector('.js-seg');
+    s.addEventListener('click',e=>{e.stopPropagation();
+      const r=s.getBoundingClientRect();
+      setMin(n,Math.max(1,Math.ceil((e.clientX-r.left)/r.width*12)/12*MAXM))});}
+
+  setMin(n,25);
+  // park the wheel on the starting value instead of at the top of the list
+  const p=n.querySelector('.js-pkr');
+  if(p){const i=[...p.querySelectorAll('i')].find(x=>+x.dataset.m===25);
+    if(i) p.scrollTop=i.offsetTop-p.clientHeight/2+i.offsetHeight/2;}
+});
+
+document.querySelectorAll('.r3').forEach(r3Wire);
+refresh();
+fit();
+</script>
+<style>@keyframes sl{from{left:0}to{left:calc(100% - 10px)}}</style>

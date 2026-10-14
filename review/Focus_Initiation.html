@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head><title>Focus initiation · production overlay preview</title>
+<meta charset="UTF-8" />
+<style>
+  :root { --c1: 185,234,156; --c2: 127,192,106; }
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; pointer-events: none; -webkit-user-select: none; }
+  .layer { position: fixed; inset: 0; pointer-events: none; will-change: opacity; }
+  .vignette {
+    opacity: 0; transition: opacity 2.2s cubic-bezier(.32,.72,0,1);
+    background:
+      radial-gradient(126% 106% at 50% 44%, rgba(0,0,0,0) 38%, rgba(6,5,4,.15) 64%, rgba(4,4,5,.36) 84%, rgba(2,2,3,.54) 100%),
+      radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,.025) 0%, rgba(0,0,0,0) 52%);
+  }
+  .vignette.on { opacity: 1; animation: breathe 11s ease-in-out infinite; }
+  .focus-init {
+    opacity: 0;
+    background: radial-gradient(ellipse 90% 90% at 50% 44%, rgba(2,3,5,.035) 20%, rgba(2,3,5,.12) 46%, rgba(2,3,5,.48) 75%, rgba(2,3,5,.78) 100%);
+  }
+  @keyframes breathe { 0%,100% { opacity: .90; } 50% { opacity: 1; } }
+  .cel { opacity: 0; }
+  body.celebrate .cel.wash  { animation: washK  2400ms cubic-bezier(.32,.72,0,1) forwards; }
+  body.celebrate .cel.rim   { animation: rimK   2600ms cubic-bezier(.32,.72,0,1) forwards; }
+  body.celebrate .bloom     { animation: bloomK 1600ms cubic-bezier(.22,.9,.24,1) forwards; }
+  body.celebrate.soft .cel.wash { animation-duration: 1500ms; opacity: 0; }
+  body.celebrate.soft { opacity: .6; }
+  .wash {
+    background: radial-gradient(126% 92% at 50% 0%, rgba(var(--c1),.64) 0%, rgba(var(--c2),.48) 34%, rgba(var(--c2),.32) 68%, rgba(var(--c2),.24) 100%);
+  }
+  @keyframes washK { 0% {opacity:0; transform:scale(1.05)} 11% {opacity:1; transform:scale(1)} 29% {opacity:.5} 43% {opacity:.8} 62% {opacity:.4} 100% {opacity:0; transform:scale(1)} }
+  .rim { box-shadow: inset 0 0 210px 60px rgba(var(--c2),.68), inset 0 0 60px 0 rgba(var(--c1),.55); }
+  @keyframes rimK { 0% {opacity:0} 14% {opacity:1} 32% {opacity:.46} 48% {opacity:.78} 100% {opacity:0} }
+  .bloom {
+    position: fixed; left: 50%; top: 0; width: 62vmax; height: 62vmax;
+    margin-left: -31vmax; margin-top: -31vmax; border-radius: 50%;
+    background: radial-gradient(circle, rgba(var(--c1),.72) 0%, rgba(var(--c2),.38) 42%, rgba(0,0,0,0) 70%);
+    filter: blur(26px); opacity: 0; pointer-events: none;
+  }
+  @keyframes bloomK { 0% {opacity:0; transform:scale(.34)} 16% {opacity:.95} 100% {opacity:0; transform:scale(1.55)} }
+  @media (prefers-reduced-motion: reduce) {
+    .vignette.on { animation: none; }
+    body.celebrate .cel.wash { animation-name: washReduced; }
+    body.celebrate .cel.rim { animation-name: rimReduced; }
+    body.celebrate .bloom { animation-name: bloomReduced; }
+    @keyframes washReduced { 0% { opacity:0 } 12% { opacity:.72 } 100% { opacity:0 } }
+    @keyframes rimReduced { 0% { opacity:0 } 14% { opacity:1 } 100% { opacity:0 } }
+    @keyframes bloomReduced { 0% { opacity:0 } 16% { opacity:.85 } 100% { opacity:0 } }
+  }
+body{background:#dce0e7;font-family:-apple-system,system-ui,sans-serif;pointer-events:auto}.desktop{position:absolute;inset:0;padding:42px 8%;background:linear-gradient(135deg,#cbd3e0,#e8e5df);color:#252930}.workspace{max-width:660px;margin:0 auto;background:#f7f7f8;border-radius:10px;padding:28px;box-shadow:0 20px 60px #21263320}.workspace h1{font-size:25px;font-weight:400;margin-bottom:14px}.workspace p{font-size:14px;line-height:1.65;color:#69717b}.lines{margin-top:24px;display:grid;gap:12px}.lines span{height:8px;background:#e5e7ea;border-radius:4px}.lines span:nth-child(3){width:70%}.demo-controls{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;background:#0d0e12;color:#f4f4f6;white-space:nowrap;font-size:12px}.demo-controls button{border:0;background:#5f646d;color:#fff;border-radius:6px;padding:9px 12px;font:inherit;cursor:pointer}.demo-controls button:active{transform:scale(.97)}.demo-controls button:focus-visible{outline:2px solid #03c3d1;outline-offset:3px}.demo-controls label{display:flex;align-items:center;gap:5px}</style>
+</head>
+<body><div class="desktop"><div class="workspace"><h1>A clear place to focus.</h1><p>Ten seconds to settle into the session.<br>The edges darken; the centre stays readable.</p><div class="lines"><span></span><span></span><span></span><span></span></div></div></div><div class="demo-controls"><button id="playIntro">Start focus · 10s</button><button id="cancelIntro">Cancel</button><label><input type="checkbox" id="demoSound" checked>Sound</label></div><script>const callbacks={};window.overlay={onVignette:cb=>callbacks.vignette=cb,onCelebrate:cb=>callbacks.celebrate=cb,onInitiateFocus:cb=>callbacks.focus=cb};</script>
+  <div class="layer vignette" id="vignette"></div>
+  <div class="layer focus-init" id="focusInit"></div>
+  <div class="layer cel wash"></div>
+  <div class="layer cel rim"></div>
+  <div class="bloom"></div>
+<script>
+  const vignette = document.getElementById('vignette');
+  const focusInit = document.getElementById('focusInit');
+  let celTimer = null;
+  let introAnimation = null;
+  let audioContext = null;
+  let cueGain = null;
+  let introGeneration = 0;
+  function stopFocusIntro() {
+    introGeneration++;
+    const opacity = getComputedStyle(focusInit).opacity;
+    focusInit.getAnimations().forEach(animation => animation.cancel());
+    introAnimation = null;
+    if (Number(opacity) > 0) focusInit.animate([{ opacity }, { opacity:0 }], { duration:240, easing:'ease-out' });
+    if (cueGain && audioContext) {
+      const now = audioContext.currentTime;
+      cueGain.gain.cancelScheduledValues(now);
+      cueGain.gain.setTargetAtTime(0, now, .025);
+      cueGain = null;
+    }
+  }
+  async function playFocusCue() {
+    const generation = introGeneration;
+    try {
+      audioContext ||= new AudioContext();
+      await audioContext.resume();
+      if (generation !== introGeneration) return;
+      const now = audioContext.currentTime;
+      const gain = audioContext.createGain();
+      cueGain = gain;
+      gain.connect(audioContext.destination);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(.055, now + .09);
+      gain.gain.exponentialRampToValueAtTime(.0001, now + 1.8);
+      let remaining = 2;
+      for (const [frequency, delay] of [[220, 0], [330, .16]]) {
+        const tone = audioContext.createOscillator();
+        tone.type = 'sine';
+        tone.frequency.value = frequency;
+        tone.connect(gain);
+        tone.start(now + delay);
+        tone.stop(now + 1.85);
+        tone.onended = () => {
+          tone.disconnect();
+          if (--remaining === 0) { gain.disconnect(); if (cueGain === gain) cueGain = null; }
+        };
+      }
+    } catch { /* Audio device failure must never delay the timer. */ }
+  }
+  window.overlay.onInitiateFocus((opts) => {
+    stopFocusIntro();
+    if (!opts) return;
+    if (opts.visual) {
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      introAnimation = focusInit.animate([
+        { opacity: 0, offset: 0, easing: 'cubic-bezier(.32,.72,0,1)' },
+        { opacity: reduced ? .6 : 1, offset: .18 },
+        { opacity: reduced ? .6 : 1, offset: .42, easing: 'cubic-bezier(.4,0,.2,1)' },
+        { opacity: 0, offset: 1 },
+      ], { duration: 10000 });
+    }
+    if (opts.sound) playFocusCue();
+  });
+  window.overlay.onVignette((on) => { vignette.classList.toggle('on', !!on); });
+  window.overlay.onCelebrate(({ tone } = {}) => {
+    const b = document.body;
+    b.classList.remove('celebrate', 'soft');
+    void b.offsetWidth;
+    b.classList.add('celebrate');
+    clearTimeout(celTimer);
+    celTimer = setTimeout(() => b.classList.remove('celebrate', 'soft'), 2700);
+  });
+</script>
+<script>document.querySelector('#playIntro').onclick=()=>{callbacks.vignette(true);callbacks.focus({visual:true,sound:document.querySelector('#demoSound').checked})};document.querySelector('#cancelIntro').onclick=()=>{callbacks.focus(null);callbacks.vignette(false)};</script></body>
+</html>
